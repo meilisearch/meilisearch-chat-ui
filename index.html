@@ -14,12 +14,12 @@
             background-color: #202123;
             color: #ccc;
         }
-        
+
         .header {
             padding: 1rem 0;
             color: #ccc;
         }
-        
+
         .chat-container {
             flex: 1;
             overflow-y: auto;
@@ -28,14 +28,14 @@
             margin: 0 auto;
             transition: all 0.3s ease;
         }
-        
+
         .message-row {
             padding: 1rem;
             width: 100%;
             margin-bottom: 0.5rem;
             color: #ccc;
         }
-        
+
         .user-message .message-content {
             max-width: 80%;
             padding: 1rem;
@@ -44,13 +44,13 @@
             margin-left: auto;
             position: relative;
         }
-        
+
         .assistant-message .message-content {
             width: 100%;
             padding: 1rem;
             position: relative;
         }
-        
+
         .input-container {
             position: fixed;
             bottom: 0;
@@ -61,7 +61,7 @@
             transition: all 0.3s ease;
             z-index: 100;
         }
-        
+
         .centered-input-container {
             position: absolute;
             top: 50%;
@@ -72,7 +72,7 @@
             transition: all 0.5s ease;
             z-index: 100;
         }
-        
+
         .input-box {
             resize: none;
             padding-left: 40px;
@@ -81,19 +81,18 @@
             transition: all 0.2s ease;
             color: #ccc !important;
             background-color: #444654 !important;
-            border-color: #565869 !important;
+            border: 1px solid #666 !important;
         }
-        
+
         .input-box:focus {
             box-shadow: none !important;
-            border-color: #565869 !important;
-            border-width: 1.5px !important;
+            border-color: #999 !important;
         }
-        
+
         .input-box::placeholder {
             color: #9aa3b0 !important;
         }
-        
+
         .typing-dot {
             width: 8px;
             height: 8px;
@@ -103,19 +102,19 @@
             opacity: 0.6;
             animation: typing 1.5s infinite ease-in-out;
         }
-        
+
         .typing-dot:nth-child(1) {
             animation-delay: 0s;
         }
-        
+
         .typing-dot:nth-child(2) {
             animation-delay: 0.2s;
         }
-        
+
         .typing-dot:nth-child(3) {
             animation-delay: 0.4s;
         }
-        
+
         @keyframes typing {
             0%, 100% {
                 transform: translateY(0);
@@ -124,7 +123,7 @@
                 transform: translateY(-5px);
             }
         }
-        
+
         pre {
             background-color: rgba(0, 0, 0, 0.3);
             border-radius: 5px;
@@ -133,14 +132,14 @@
             margin: 1rem 0;
             color: #ccc;
         }
-        
+
         code {
             background-color: rgba(0, 0, 0, 0.2);
             padding: 2px 4px;
             border-radius: 3px;
             color: #ccc;
         }
-        
+
         .settings-icon {
             position: absolute;
             bottom: 17px;
@@ -150,20 +149,20 @@
             color: #9aa3b0;
             z-index: 1000;
         }
-        
+
         .settings-icon:hover {
             color: #ccc;
         }
-        
+
         .welcome-container {
             opacity: 1;
             transition: opacity 0.3s ease;
         }
-        
+
         .hidden {
             display: none !important;
         }
-        
+
         .fade-out {
             opacity: 0;
         }
@@ -174,9 +173,9 @@
         <header class="text-center header">
             <h3 class="mb-0">Magik RAG</h3>
         </header>
-        
+
         <div class="chat-container" id="chat-container"></div>
-        
+
         <div class="centered-input-container" id="centered-input">
             <div class="container">
                 <div class="row justify-content-center">
@@ -186,10 +185,10 @@
                                 <div class="settings-icon" id="settings-button">
                                     <i class="bi bi-gear"></i>
                                 </div>
-                                <textarea 
-                                    class="form-control input-box" 
-                                    id="user-input" 
-                                    placeholder="Type your message here... (Press Enter to send)" 
+                                <textarea
+                                    class="form-control input-box"
+                                    id="user-input"
+                                    placeholder="Ask me anything"
                                     rows="4"
                                     autofocus
                                 ></textarea>
@@ -199,7 +198,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="input-container hidden" id="bottom-input">
             <div class="container">
                 <div class="row justify-content-center">
@@ -209,10 +208,10 @@
                                 <div class="settings-icon" id="bottom-settings-button">
                                     <i class="bi bi-gear"></i>
                                 </div>
-                                <textarea 
-                                    class="form-control input-box" 
-                                    id="bottom-user-input" 
-                                    placeholder="Type your message here... (Press Enter to send)" 
+                                <textarea
+                                    class="form-control input-box"
+                                    id="bottom-user-input"
+                                    placeholder="Type your message here... (Press Enter to send)"
                                     rows="3"
                                     autofocus
                                 ></textarea>
@@ -230,15 +229,15 @@
             // Configuration variables
             let meilisearchUrl = localStorage.getItem('meilisearchUrl');
             let apiKey = localStorage.getItem('meilisearchApiKey');
-            
+
             // Conversation state
             let hasStartedConversation = false;
-            
+
             // If not found in localStorage, prompt the user
             if (!meilisearchUrl || !apiKey) {
                 promptForCredentials();
             }
-            
+
             function promptForCredentials() {
                 meilisearchUrl = prompt("Please enter the Meilisearch URL", meilisearchUrl || "");
                 if (!meilisearchUrl) {
@@ -246,65 +245,65 @@
                     promptForCredentials();
                     return;
                 }
-                
+
                 apiKey = prompt("Please enter your Meilisearch API Key", "");
                 if (!apiKey) {
                     alert("An API Key is required to continue.");
                     promptForCredentials();
                     return;
                 }
-                
+
                 // Save to localStorage
                 localStorage.setItem('meilisearchUrl', meilisearchUrl);
                 localStorage.setItem('meilisearchApiKey', apiKey);
             }
-            
+
             // DOM Elements
             const chatContainer = document.getElementById('chat-container');
             const centeredInput = document.getElementById('centered-input');
             const bottomInput = document.getElementById('bottom-input');
-            
+
             const chatForm = document.getElementById('chat-form');
             const userInput = document.getElementById('user-input');
-            
+
             const bottomChatForm = document.getElementById('bottom-chat-form');
             const bottomUserInput = document.getElementById('bottom-user-input');
-            
+
             const settingsButton = document.getElementById('settings-button');
             const bottomSettingsButton = document.getElementById('bottom-settings-button');
-            
+
             // Event Listeners
             chatForm.addEventListener('submit', handleSubmit);
             bottomChatForm.addEventListener('submit', handleBottomSubmit);
-            
+
             userInput.addEventListener('input', function() {
                 adjustTextareaHeight(userInput);
             });
-            
+
             bottomUserInput.addEventListener('input', function() {
                 adjustTextareaHeight(bottomUserInput);
             });
-            
+
             userInput.addEventListener('keydown', function(e) {
                 handleKeyDown(e);
             });
-            
+
             bottomUserInput.addEventListener('keydown', function(e) {
                 handleKeyDown(e);
             });
-            
+
             settingsButton.addEventListener('click', promptForCredentials);
             bottomSettingsButton.addEventListener('click', promptForCredentials);
-            
+
             // Conversation history
             let conversationHistory = [];
-            
+
             // Auto-resize textarea
             function adjustTextareaHeight(textarea) {
                 textarea.style.height = 'auto';
                 textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
             }
-            
+
             // Handle Enter key to submit, Shift+Enter for new line
             function handleKeyDown(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -315,82 +314,82 @@
                     }
                 }
             }
-            
+
             // Switch from centered to bottom input
             function switchToBottomInput() {
                 if (!hasStartedConversation) {
                     // First transfer the content
                     bottomUserInput.value = userInput.value;
-                    
+
                     // Hide centered input and show bottom input
                     centeredInput.classList.add('hidden');
                     bottomInput.classList.remove('hidden');
-                    
+
                     // Focus the bottom input
                     bottomUserInput.focus();
                     adjustTextareaHeight(bottomUserInput);
-                    
+
                     hasStartedConversation = true;
                 }
             }
-            
+
             // Add a message to the chat
             function addMessage(role, content) {
                 // If this is the first message, switch to bottom input
                 if (!hasStartedConversation) {
                     switchToBottomInput();
                 }
-                
+
                 const messageRow = document.createElement('div');
                 messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-                
+
                 // Simple markdown rendering for code blocks
                 let formattedContent = content
                     .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
                     .replace(/`([^`]+)`/g, '<code>$1</code>')
                     .replace(/\n/g, '<br>');
-                
+
                 messageDiv.innerHTML = formattedContent;
-                
+
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
                 window.scrollTo(0, document.body.scrollHeight);
-                
+
                 // Add to conversation history
                 conversationHistory.push({
                     role: role,
                     content: content
                 });
             }
-            
+
             // Show loading indicator
             function showLoadingIndicator() {
                 const messageRow = document.createElement('div');
                 messageRow.className = 'message-row assistant-message';
                 messageRow.id = 'loading-indicator';
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-                
+
                 const typingIndicator = document.createElement('div');
                 typingIndicator.className = 'd-flex align-items-center';
-                
+
                 for (let i = 0; i < 3; i++) {
                     const dot = document.createElement('div');
                     dot.className = 'typing-dot';
                     typingIndicator.appendChild(dot);
                 }
-                
+
                 messageDiv.appendChild(typingIndicator);
-                
+
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
                 window.scrollTo(0, document.body.scrollHeight);
             }
-            
+
             // Hide loading indicator
             function hideLoadingIndicator() {
                 const loadingIndicator = document.getElementById('loading-indicator');
@@ -398,56 +397,56 @@
                     loadingIndicator.remove();
                 }
             }
-            
+
             // Handle centered form submission
             async function handleSubmit(e) {
                 e.preventDefault();
-                
+
                 const userMessage = userInput.value.trim();
                 if (userMessage === '') return;
-                
+
                 // We'll switch to bottom input and show message there
                 switchToBottomInput();
-                
+
                 // Process the message in the bottom input
                 setTimeout(() => {
                     handleMessage(userMessage);
                 }, 350);
             }
-            
+
             // Handle bottom form submission
             async function handleBottomSubmit(e) {
                 e.preventDefault();
-                
+
                 const userMessage = bottomUserInput.value.trim();
                 if (userMessage === '') return;
-                
+
                 handleMessage(userMessage);
             }
-            
+
             // Process user message and get response
             async function handleMessage(userMessage) {
                 // Display user message
                 addMessage('user', userMessage);
-                
+
                 // Clear input
                 userInput.value = '';
                 bottomUserInput.value = '';
                 adjustTextareaHeight(userInput);
                 adjustTextareaHeight(bottomUserInput);
-                
+
                 // Show loading indicator
                 showLoadingIndicator();
-                
+
                 try {
                     // Prepare the request body following OpenAI API structure
                     const requestBody = {
-                        model: "gpt-3.5-turbo", 
+                        model: "gpt-3.5-turbo",
                         messages: conversationHistory,
                         temperature: 0.7,
                         max_tokens: 1000
                     };
-                    
+
                     // Make the API call to the /chat endpoint
                     const response = await fetch(`${meilisearchUrl}/chat`, {
                         method: 'POST',
@@ -457,17 +456,17 @@
                         },
                         body: JSON.stringify(requestBody)
                     });
-                    
+
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.error?.message || 'Unknown error occurred');
                     }
-                    
+
                     const data = await response.json();
-                    
+
                     // Hide loading indicator
                     hideLoadingIndicator();
-                    
+
                     // Display assistant response
                     if (data.choices && data.choices.length > 0) {
                         const assistantMessage = data.choices[0].message.content;
@@ -477,14 +476,14 @@
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    
+
                     // Hide loading indicator
                     hideLoadingIndicator();
-                    
+
                     // Display error message
                     addMessage('assistant', `Error: ${error.message || 'An error occurred while processing your request.'}`);
                 }
-                
+
                 // Focus the appropriate input box
                 if (hasStartedConversation) {
                     bottomUserInput.focus();
@@ -492,7 +491,7 @@
                     userInput.focus();
                 }
             }
-            
+
             // Initialize - focus the input field
             userInput.focus();
         });
