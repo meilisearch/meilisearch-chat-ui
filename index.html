@@ -6,6 +6,9 @@
     <title>Magik RAG</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
     <style>
         body {
             min-height: 100vh;
@@ -128,11 +131,68 @@
             margin: 1rem 0;
             color: #ccc;
         }
-
+        
         code {
             background-color: rgba(0, 0, 0, 0.2);
             padding: 2px 4px;
             border-radius: 3px;
+            color: #ccc;
+        }
+
+        .message-content table {
+            border-collapse: collapse;
+            margin: 10px 0;
+            color: #ccc;
+            width: 100%;
+        }
+
+        .message-content th,
+        .message-content td {
+            border: 1px solid #444;
+            padding: 8px;
+        }
+
+        .message-content th {
+            background-color: #333;
+            text-align: left;
+        }
+
+        .message-content tr:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .message-content blockquote {
+            border-left: 3px solid #555;
+            padding-left: 10px;
+            color: #aaa;
+            margin: 10px 0;
+        }
+
+        .message-content ul, 
+        .message-content ol {
+            padding-left: 20px;
+        }
+
+        .message-content a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .message-content a:hover {
+            text-decoration: underline;
+        }
+
+        .message-content img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .message-content h1, 
+        .message-content h2, 
+        .message-content h3, 
+        .message-content h4 {
+            margin-top: 16px;
+            margin-bottom: 10px;
             color: #ccc;
         }
 
@@ -513,25 +573,38 @@
                 if (!hasStartedConversation) {
                     switchToBottomInput();
                 }
-
+                
                 const messageRow = document.createElement('div');
                 messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
-
+                
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-
-                // Simple markdown rendering for code blocks
-                let formattedContent = content
-                    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-                    .replace(/`([^`]+)`/g, '<code>$1</code>')
-                    .replace(/\n/g, '<br>');
-
-                messageDiv.innerHTML = formattedContent;
-
+                
+                // Use marked.js to render markdown
+                // Configure marked options
+                marked.setOptions({
+                    highlight: function(code, lang) {
+                        if (lang && hljs.getLanguage(lang)) {
+                            return hljs.highlight(code, { language: lang }).value;
+                        }
+                        return hljs.highlightAuto(code).value;
+                    },
+                    breaks: true,
+                    gfm: true
+                });
+                
+                // Render markdown
+                messageDiv.innerHTML = marked.parse(content);
+                
+                // Apply syntax highlighting to any code blocks
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+                
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
                 window.scrollTo(0, document.body.scrollHeight);
-
+                
                 // Add to conversation history
                 conversationHistory.push({
                     role: role,
@@ -823,13 +896,25 @@
                                         if (content) {
                                             assistantMessage += content;
 
-                                            // Format content with simple markdown
-                                            let formattedContent = assistantMessage
-                                                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-                                                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                                                .replace(/\n/g, '<br>');
-
-                                            messageDiv.innerHTML = formattedContent;
+                                            // Use marked.js to render markdown
+                                            marked.setOptions({
+                                                highlight: function(code, lang) {
+                                                    if (lang && hljs.getLanguage(lang)) {
+                                                        return hljs.highlight(code, { language: lang }).value;
+                                                    }
+                                                    return hljs.highlightAuto(code).value;
+                                                },
+                                                breaks: true,
+                                                gfm: true
+                                            });
+                                            
+                                            // Render markdown
+                                            messageDiv.innerHTML = marked.parse(assistantMessage);
+                                            
+                                            // Apply syntax highlighting to any code blocks
+                                            messageDiv.querySelectorAll('pre code').forEach((block) => {
+                                                hljs.highlightElement(block);
+                                            });
                                             window.scrollTo(0, document.body.scrollHeight);
                                         }
                                     }
