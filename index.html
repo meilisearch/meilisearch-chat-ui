@@ -423,16 +423,28 @@
                 // Show loading indicator
                 showLoadingIndicator();
                 
+                // Create a message row for the assistant response
+                const messageRow = document.createElement('div');
+                messageRow.className = 'message-row assistant-message';
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message-content';
+                messageRow.appendChild(messageDiv);
+                
+                let assistantMessage = '';
+                let currentAssistantMessageElement = null;
+                
                 try {
                     // Prepare the request body following OpenAI API structure
                     const requestBody = {
                         model: "gpt-3.5-turbo", 
                         messages: conversationHistory,
                         temperature: 0.7,
-                        max_tokens: 1000
+                        max_tokens: 1000,
+                        stream: true // Enable streaming
                     };
                     
-                    // Make the API call to the /chat endpoint
+                    // Make the API call to the /chat endpoint with streaming
                     const response = await fetch(`${meilisearchUrl}/chat`, {
                         method: 'POST',
                         headers: {
@@ -447,23 +459,74 @@
                         throw new Error(errorData.error?.message || 'Unknown error occurred');
                     }
                     
-                    const data = await response.json();
+                    // Get the response as a stream
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder('utf-8');
                     
-                    // Hide loading indicator
+                    // Hide loading indicator once we start receiving the stream
                     hideLoadingIndicator();
                     
-                    // Display assistant response
-                    if (data.choices && data.choices.length > 0) {
-                        const assistantMessage = data.choices[0].message.content;
-                        addMessage('assistant', assistantMessage);
-                    } else {
-                        throw new Error('Invalid response format');
+                    // Add the message row to the chat container before streaming
+                    chatContainer.appendChild(messageRow);
+                    
+                    // Process the stream
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        // Decode the chunk
+                        const chunk = decoder.decode(value, { stream: true });
+                        
+                        // Process each line in the chunk
+                        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                        for (const line of lines) {
+                            // Skip the "data: " prefix and empty lines
+                            if (line.startsWith('data: ')) {
+                                const data = line.substring(6);
+                                
+                                // Check if it's the [DONE] message
+                                if (data === '[DONE]') continue;
+                                
+                                try {
+                                    const parsedData = JSON.parse(data);
+                                    if (parsedData.choices && parsedData.choices.length > 0) {
+                                        const content = parsedData.choices[0].delta?.content || '';
+                                        if (content) {
+                                            assistantMessage += content;
+                                            
+                                            // Format content with simple markdown
+                                            let formattedContent = assistantMessage
+                                                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                                                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                                                .replace(/\n/g, '<br>');
+                                            
+                                            messageDiv.innerHTML = formattedContent;
+                                            window.scrollTo(0, document.body.scrollHeight);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing JSON from stream:', e);
+                                }
+                            }
+                        }
                     }
+                    
+                    // Save the complete message to conversation history
+                    conversationHistory.push({
+                        role: 'assistant',
+                        content: assistantMessage
+                    });
+                    
                 } catch (error) {
                     console.error('Error:', error);
                     
                     // Hide loading indicator
                     hideLoadingIndicator();
+                    
+                    // Remove the streaming message row if it exists
+                    if (messageRow.parentNode) {
+                        messageRow.parentNode.removeChild(messageRow);
+                    }
                     
                     // Display error message
                     addMessage('assistant', `Error: ${error.message || 'An error occurred while processing your request.'}`);
