@@ -568,11 +568,20 @@
             }
 
             // Add a message to the chat
+            // Function to check if user is scrolled to bottom
+            function isScrolledToBottom() {
+                const tolerance = 50; // pixels of tolerance
+                return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - tolerance);
+            }
+            
             function addMessage(role, content) {
                 // If this is the first message, switch to bottom input
                 if (!hasStartedConversation) {
                     switchToBottomInput();
                 }
+                
+                // Check if user was at the bottom before adding content
+                const wasAtBottom = isScrolledToBottom();
                 
                 const messageRow = document.createElement('div');
                 messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
@@ -603,7 +612,11 @@
                 
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
-                window.scrollTo(0, document.body.scrollHeight);
+                
+                // Only scroll to bottom if user was already at the bottom
+                if (wasAtBottom) {
+                    window.scrollTo(0, document.body.scrollHeight);
+                }
                 
                 // Add to conversation history
                 conversationHistory.push({
@@ -794,7 +807,11 @@
                                         } else {
                                             chatContainer.appendChild(searchIndicatorRow);
                                         }
-                                        window.scrollTo(0, document.body.scrollHeight);
+                                        
+                                        // Only scroll if user is already at the bottom
+                                        if (isScrolledToBottom()) {
+                                            window.scrollTo(0, document.body.scrollHeight);
+                                        }
                                     }
                                     // Handle tool event results or tool output
                                     else if (parsedData.object === "chat.completion.tool.event" || parsedData.object === "chat.completion.tool.output") {
@@ -887,8 +904,10 @@
                                         // Add the tool results to the message
                                         toolMessageDiv.appendChild(toolResults);
                                         
-                                        // Scroll to the bottom to show the results
-                                        window.scrollTo(0, document.body.scrollHeight);
+                                        // Only scroll if user is already at the bottom
+                                        if (isScrolledToBottom()) {
+                                            window.scrollTo(0, document.body.scrollHeight);
+                                        }
                                     }
                                     // Handle regular message delta
                                     else if (parsedData.choices && parsedData.choices.length > 0) {
@@ -915,7 +934,11 @@
                                             messageDiv.querySelectorAll('pre code').forEach((block) => {
                                                 hljs.highlightElement(block);
                                             });
-                                            window.scrollTo(0, document.body.scrollHeight);
+                                            
+                                            // Only scroll if user is already at the bottom
+                                            if (isScrolledToBottom()) {
+                                                window.scrollTo(0, document.body.scrollHeight);
+                                            }
                                         }
                                     }
                                 } catch (e) {
