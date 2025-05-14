@@ -14,12 +14,12 @@
             background-color: #202123;
             color: #ccc;
         }
-        
+
         .header {
             padding: 1rem 0;
             color: #ccc;
         }
-        
+
         .chat-container {
             flex: 1;
             overflow-y: auto;
@@ -27,14 +27,14 @@
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .message-row {
             padding: 1rem;
             width: 100%;
             margin-bottom: 0.5rem;
             color: #ccc;
         }
-        
+
         .user-message .message-content {
             max-width: 80%;
             padding: 1rem;
@@ -43,13 +43,13 @@
             margin-left: auto;
             position: relative;
         }
-        
+
         .assistant-message .message-content {
             width: 100%;
             padding: 1rem;
             position: relative;
         }
-        
+
         .input-container {
             position: fixed;
             bottom: 0;
@@ -59,7 +59,7 @@
             background-color: #202123;
             z-index: 100;
         }
-        
+
         .centered-input-container {
             position: absolute;
             top: 50%;
@@ -69,7 +69,7 @@
             max-width: 600px;
             z-index: 100;
         }
-        
+
         .input-box {
             resize: none;
             padding-left: 40px;
@@ -79,16 +79,16 @@
             background-color: #444654 !important;
             border: 2px solid #666 !important;
         }
-        
+
         .input-box:focus {
             box-shadow: none !important;
             border-color: #999 !important;
         }
-        
+
         .input-box::placeholder {
             color: #9aa3b0 !important;
         }
-        
+
         .typing-dot {
             width: 8px;
             height: 8px;
@@ -98,19 +98,19 @@
             opacity: 0.6;
             animation: typing 1.5s infinite ease-in-out;
         }
-        
+
         .typing-dot:nth-child(1) {
             animation-delay: 0s;
         }
-        
+
         .typing-dot:nth-child(2) {
             animation-delay: 0.2s;
         }
-        
+
         .typing-dot:nth-child(3) {
             animation-delay: 0.4s;
         }
-        
+
         @keyframes typing {
             0%, 100% {
                 transform: translateY(0);
@@ -119,7 +119,7 @@
                 transform: translateY(-5px);
             }
         }
-        
+
         pre {
             background-color: rgba(0, 0, 0, 0.3);
             border-radius: 5px;
@@ -128,14 +128,14 @@
             margin: 1rem 0;
             color: #ccc;
         }
-        
+
         code {
             background-color: rgba(0, 0, 0, 0.2);
             padding: 2px 4px;
             border-radius: 3px;
             color: #ccc;
         }
-        
+
         .settings-icon {
             position: absolute;
             bottom: 17px;
@@ -145,13 +145,145 @@
             color: #9aa3b0;
             z-index: 1000;
         }
-        
+
         .settings-icon:hover {
             color: #ccc;
         }
-        
+
         .hidden {
             display: none !important;
+        }
+
+        /* Search tool call animation styles */
+        .search-indicator-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background-color: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .search-pulse {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            margin-right: 12px;
+            animation: pulse 1.5s infinite ease-in-out;
+            box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
+        }
+
+        .search-text {
+            color: #3b82f6;
+            font-weight: 500;
+        }
+
+        .search-params {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #9aa3b0;
+            font-family: monospace;
+        }
+
+        .tool-results {
+            padding: 12px;
+            background-color: #f0f4ff;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .tool-results h4 {
+            margin-top: 0;
+            margin-bottom: 0;
+            color: #3b82f6;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .tool-results h4::before {
+            content: '🔍';
+            margin-right: 8px;
+        }
+        
+        .tool-results-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            margin-top: 0;
+        }
+        
+        .tool-results-content.expanded {
+            max-height: 500px;
+            margin-top: 12px;
+            overflow-y: auto;
+        }
+        
+        .tool-results h4::after {
+            content: '▼';
+            margin-left: auto;
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
+        }
+        
+        .tool-results h4.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .movie-item {
+            margin-bottom: 8px;
+            padding: 12px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            border-left: 2px solid transparent;
+        }
+
+        .movie-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.08);
+            border-left: 2px solid #3b82f6;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 6px;
+        }
+
+        .tool-message {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.7;
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.7;
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            70% { opacity: 0.7; transform: translateY(-2px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -160,9 +292,9 @@
         <header class="text-center header">
             <h3 class="mb-0">Magik RAG</h3>
         </header>
-        
+
         <div class="chat-container" id="chat-container"></div>
-        
+
         <div class="centered-input-container" id="centered-input">
             <div class="container">
                 <div class="row justify-content-center">
@@ -172,10 +304,10 @@
                                 <div class="settings-icon" id="settings-button">
                                     <i class="bi bi-gear"></i>
                                 </div>
-                                <textarea 
-                                    class="form-control input-box" 
-                                    id="user-input" 
-                                    placeholder="Ask me anything" 
+                                <textarea
+                                    class="form-control input-box"
+                                    id="user-input"
+                                    placeholder="Ask me anything"
                                     rows="4"
                                     autofocus
                                 ></textarea>
@@ -185,7 +317,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="input-container hidden" id="bottom-input">
             <div class="container">
                 <div class="row justify-content-center">
@@ -195,10 +327,10 @@
                                 <div class="settings-icon" id="bottom-settings-button">
                                     <i class="bi bi-gear"></i>
                                 </div>
-                                <textarea 
-                                    class="form-control input-box" 
-                                    id="bottom-user-input" 
-                                    placeholder="Ask me anything" 
+                                <textarea
+                                    class="form-control input-box"
+                                    id="bottom-user-input"
+                                    placeholder="Ask me anything"
                                     rows="3"
                                     autofocus
                                 ></textarea>
@@ -213,18 +345,24 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
+            // Helper function for handling collapsible elements
+            window.toggleCollapsible = function(header) {
+                header.classList.toggle('collapsed');
+                const content = header.nextElementSibling;
+                content.classList.toggle('expanded');
+            };
             // Configuration variables
             let meilisearchUrl = localStorage.getItem('meilisearchUrl');
             let apiKey = localStorage.getItem('meilisearchApiKey');
-            
+
             // Conversation state
             let hasStartedConversation = false;
-            
+
             // If not found in localStorage, prompt the user
             if (!meilisearchUrl || !apiKey) {
                 promptForCredentials();
             }
-            
+
             function promptForCredentials() {
                 meilisearchUrl = prompt("Please enter the Meilisearch URL", meilisearchUrl || "");
                 if (!meilisearchUrl) {
@@ -232,65 +370,65 @@
                     promptForCredentials();
                     return;
                 }
-                
+
                 apiKey = prompt("Please enter your Meilisearch API Key", "");
                 if (!apiKey) {
                     alert("An API Key is required to continue.");
                     promptForCredentials();
                     return;
                 }
-                
+
                 // Save to localStorage
                 localStorage.setItem('meilisearchUrl', meilisearchUrl);
                 localStorage.setItem('meilisearchApiKey', apiKey);
             }
-            
+
             // DOM Elements
             const chatContainer = document.getElementById('chat-container');
             const centeredInput = document.getElementById('centered-input');
             const bottomInput = document.getElementById('bottom-input');
-            
+
             const chatForm = document.getElementById('chat-form');
             const userInput = document.getElementById('user-input');
-            
+
             const bottomChatForm = document.getElementById('bottom-chat-form');
             const bottomUserInput = document.getElementById('bottom-user-input');
-            
+
             const settingsButton = document.getElementById('settings-button');
             const bottomSettingsButton = document.getElementById('bottom-settings-button');
-            
+
             // Event Listeners
             chatForm.addEventListener('submit', handleSubmit);
             bottomChatForm.addEventListener('submit', handleBottomSubmit);
-            
+
             userInput.addEventListener('input', function() {
                 adjustTextareaHeight(userInput);
             });
-            
+
             bottomUserInput.addEventListener('input', function() {
                 adjustTextareaHeight(bottomUserInput);
             });
-            
+
             userInput.addEventListener('keydown', function(e) {
                 handleKeyDown(e);
             });
-            
+
             bottomUserInput.addEventListener('keydown', function(e) {
                 handleKeyDown(e);
             });
-            
+
             settingsButton.addEventListener('click', promptForCredentials);
             bottomSettingsButton.addEventListener('click', promptForCredentials);
-            
+
             // Conversation history
             let conversationHistory = [];
-            
+
             // Auto-resize textarea
             function adjustTextareaHeight(textarea) {
                 textarea.style.height = 'auto';
                 textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
             }
-            
+
             // Handle Enter key to submit, Shift+Enter for new line
             function handleKeyDown(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -301,82 +439,82 @@
                     }
                 }
             }
-            
+
             // Switch from centered to bottom input
             function switchToBottomInput() {
                 if (!hasStartedConversation) {
                     // First transfer the content
                     bottomUserInput.value = userInput.value;
-                    
+
                     // Hide centered input and show bottom input
                     centeredInput.classList.add('hidden');
                     bottomInput.classList.remove('hidden');
-                    
+
                     // Focus the bottom input
                     bottomUserInput.focus();
                     adjustTextareaHeight(bottomUserInput);
-                    
+
                     hasStartedConversation = true;
                 }
             }
-            
+
             // Add a message to the chat
             function addMessage(role, content) {
                 // If this is the first message, switch to bottom input
                 if (!hasStartedConversation) {
                     switchToBottomInput();
                 }
-                
+
                 const messageRow = document.createElement('div');
                 messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-                
+
                 // Simple markdown rendering for code blocks
                 let formattedContent = content
                     .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
                     .replace(/`([^`]+)`/g, '<code>$1</code>')
                     .replace(/\n/g, '<br>');
-                
+
                 messageDiv.innerHTML = formattedContent;
-                
+
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
                 window.scrollTo(0, document.body.scrollHeight);
-                
+
                 // Add to conversation history
                 conversationHistory.push({
                     role: role,
                     content: content
                 });
             }
-            
+
             // Show loading indicator
             function showLoadingIndicator() {
                 const messageRow = document.createElement('div');
                 messageRow.className = 'message-row assistant-message';
                 messageRow.id = 'loading-indicator';
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-                
+
                 const typingIndicator = document.createElement('div');
                 typingIndicator.className = 'd-flex align-items-center';
-                
+
                 for (let i = 0; i < 3; i++) {
                     const dot = document.createElement('div');
                     dot.className = 'typing-dot';
                     typingIndicator.appendChild(dot);
                 }
-                
+
                 messageDiv.appendChild(typingIndicator);
-                
+
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
                 window.scrollTo(0, document.body.scrollHeight);
             }
-            
+
             // Hide loading indicator
             function hideLoadingIndicator() {
                 const loadingIndicator = document.getElementById('loading-indicator');
@@ -384,66 +522,69 @@
                     loadingIndicator.remove();
                 }
             }
-            
+
             // Handle centered form submission
             async function handleSubmit(e) {
                 e.preventDefault();
-                
+
                 const userMessage = userInput.value.trim();
                 if (userMessage === '') return;
-                
+
                 // We'll switch to bottom input and show message there
                 switchToBottomInput();
-                
+
                 // Process the message immediately
                 handleMessage(userMessage);
             }
-            
+
             // Handle bottom form submission
             async function handleBottomSubmit(e) {
                 e.preventDefault();
-                
+
                 const userMessage = bottomUserInput.value.trim();
                 if (userMessage === '') return;
-                
+
                 handleMessage(userMessage);
             }
-            
+
             // Process user message and get response
             async function handleMessage(userMessage) {
                 // Display user message
                 addMessage('user', userMessage);
-                
+
                 // Clear input
                 userInput.value = '';
                 bottomUserInput.value = '';
                 adjustTextareaHeight(userInput);
                 adjustTextareaHeight(bottomUserInput);
-                
+
                 // Show loading indicator
                 showLoadingIndicator();
-                
+
+                // Variables to track state
+                let assistantMessage = '';
+                let currentAssistantMessageElement = null;
+                let toolEventActive = false;
+                let searchIndicatorRow = null;
+
                 // Create a message row for the assistant response
                 const messageRow = document.createElement('div');
                 messageRow.className = 'message-row assistant-message';
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
                 messageRow.appendChild(messageDiv);
-                
-                let assistantMessage = '';
-                let currentAssistantMessageElement = null;
-                
+
                 try {
                     // Prepare the request body following OpenAI API structure
                     const requestBody = {
-                        model: "gpt-3.5-turbo", 
+                        model: "gpt-4o",
                         messages: conversationHistory,
                         temperature: 0.7,
                         max_tokens: 1000,
                         stream: true // Enable streaming
                     };
-                    
+
                     // Make the API call to the /chat endpoint with streaming
                     const response = await fetch(`${meilisearchUrl}/chat`, {
                         method: 'POST',
@@ -453,53 +594,192 @@
                         },
                         body: JSON.stringify(requestBody)
                     });
-                    
+
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.error?.message || 'Unknown error occurred');
                     }
-                    
+
                     // Get the response as a stream
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder('utf-8');
-                    
+
                     // Hide loading indicator once we start receiving the stream
                     hideLoadingIndicator();
-                    
+
                     // Add the message row to the chat container before streaming
                     chatContainer.appendChild(messageRow);
-                    
+
                     // Process the stream
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-                        
+
                         // Decode the chunk
                         const chunk = decoder.decode(value, { stream: true });
-                        
+
                         // Process each line in the chunk
                         const lines = chunk.split('\n').filter(line => line.trim() !== '');
                         for (const line of lines) {
                             // Skip the "data: " prefix and empty lines
                             if (line.startsWith('data: ')) {
                                 const data = line.substring(6);
-                                
+
                                 // Check if it's the [DONE] message
                                 if (data === '[DONE]') continue;
-                                
+
                                 try {
                                     const parsedData = JSON.parse(data);
-                                    if (parsedData.choices && parsedData.choices.length > 0) {
+
+                                    // Handle tool call event
+                                    if (parsedData.object === "chat.completion.tool.call") {
+                                        // Create the search indicator element
+                                        searchIndicatorRow = document.createElement('div');
+                                        searchIndicatorRow.className = 'message-row';
+
+                                        const searchIndicatorContainer = document.createElement('div');
+                                        searchIndicatorContainer.className = 'search-indicator-container';
+
+                                        const searchPulse = document.createElement('div');
+                                        searchPulse.className = 'search-pulse';
+
+                                        const searchInfo = document.createElement('div');
+                                        searchInfo.className = 'search-info';
+
+                                        // Get function name and arguments
+                                        const functionName = parsedData.tool.function.name;
+                                        const functionArgs = JSON.parse(parsedData.tool.function.arguments);
+
+                                        // Create search text and params
+                                        const searchText = document.createElement('div');
+                                        searchText.className = 'search-text';
+                                        searchText.textContent = `Searching for "${functionArgs.q}"`;
+
+                                        const searchParams = document.createElement('div');
+                                        searchParams.className = 'search-params';
+                                        searchParams.textContent = `Index: ${functionArgs.index_uid}`;
+
+                                        // Assemble the indicator
+                                        searchInfo.appendChild(searchText);
+                                        searchInfo.appendChild(searchParams);
+                                        searchIndicatorContainer.appendChild(searchPulse);
+                                        searchIndicatorContainer.appendChild(searchInfo);
+                                        searchIndicatorRow.appendChild(searchIndicatorContainer);
+
+                                        // Insert search indicator before assistant message
+                                        if (messageRow.parentNode) {
+                                            chatContainer.insertBefore(searchIndicatorRow, messageRow);
+                                        } else {
+                                            chatContainer.appendChild(searchIndicatorRow);
+                                        }
+                                        window.scrollTo(0, document.body.scrollHeight);
+                                    }
+                                    // Handle tool event results or tool output
+                                    else if (parsedData.object === "chat.completion.tool.event" || parsedData.object === "chat.completion.tool.output") {
+                                        // Don't create a new row if we have a search indicator, transform it instead
+                                        let toolMessageRow, toolMessageDiv;
+                                        
+                                        if (searchIndicatorRow && searchIndicatorRow.parentNode) {
+                                            // Transform the search indicator into results container
+                                            toolMessageRow = searchIndicatorRow;
+                                            toolMessageRow.className = 'message-row tool-message';
+                                            
+                                            // Clear the existing content
+                                            toolMessageRow.innerHTML = '';
+                                            
+                                            // Create new message div
+                                            toolMessageDiv = document.createElement('div');
+                                            toolMessageDiv.className = 'message-content';
+                                            toolMessageRow.appendChild(toolMessageDiv);
+                                            
+                                            // Reset the search indicator reference
+                                            searchIndicatorRow = null;
+                                        } else {
+                                            // Create a new row if we don't have a search indicator
+                                            toolMessageRow = document.createElement('div');
+                                            toolMessageRow.className = 'message-row tool-message';
+                                            
+                                            toolMessageDiv = document.createElement('div');
+                                            toolMessageDiv.className = 'message-content';
+                                            toolMessageRow.appendChild(toolMessageDiv);
+                                            
+                                            // Add to chat container
+                                            chatContainer.appendChild(toolMessageRow);
+                                        }
+                                        
+                                        // Format the tool content
+                                        const toolContent = parsedData.tool.content;
+                                        
+                                        // Create a container for results with collapsible content
+                                        const toolResults = document.createElement('div');
+                                        toolResults.className = 'tool-results';
+                                        
+                                        // Create the header
+                                        const toolHeader = document.createElement('h4');
+                                        toolHeader.className = 'collapsed';
+                                        toolHeader.textContent = 'Search Results';
+                                        toolResults.appendChild(toolHeader);
+                                        
+                                        // Create the content container (collapsed by default)
+                                        const toolResultsContent = document.createElement('div');
+                                        toolResultsContent.className = 'tool-results-content';
+                                        
+                                        // Split by newlines and format as a list
+                                        const movieResults = toolContent.split('\n').filter(item => item.trim() !== '');
+                                        
+                                        for (const movie of movieResults) {
+                                            if (movie.startsWith('A movie called')) {
+                                                const titlePart = movie.split('about')[0].replace('A movie called', '').trim();
+                                                const descriptionPart = movie.split('about')[1]?.trim() || '';
+                                                
+                                                const movieItem = document.createElement('div');
+                                                movieItem.className = 'movie-item';
+                                                
+                                                const movieTitle = document.createElement('div');
+                                                movieTitle.className = 'movie-title';
+                                                movieTitle.textContent = `🎬 ${titlePart}`;
+                                                
+                                                const movieDesc = document.createElement('div');
+                                                movieDesc.textContent = descriptionPart;
+                                                
+                                                movieItem.appendChild(movieTitle);
+                                                movieItem.appendChild(movieDesc);
+                                                toolResultsContent.appendChild(movieItem);
+                                            } else {
+                                                const movieItem = document.createElement('div');
+                                                movieItem.className = 'movie-item';
+                                                movieItem.textContent = movie;
+                                                toolResultsContent.appendChild(movieItem);
+                                            }
+                                        }
+                                        
+                                        // Add the content to the results container
+                                        toolResults.appendChild(toolResultsContent);
+                                        
+                                        // Add click handler to toggle expansion
+                                        toolHeader.addEventListener('click', function() {
+                                            this.classList.toggle('collapsed');
+                                            toolResultsContent.classList.toggle('expanded');
+                                        });
+                                        
+                                        // Add the tool results to the message
+                                        toolMessageDiv.appendChild(toolResults);
+                                        
+                                        // Scroll to the bottom to show the results
+                                        window.scrollTo(0, document.body.scrollHeight);
+                                    }
+                                    // Handle regular message delta
+                                    else if (parsedData.choices && parsedData.choices.length > 0) {
                                         const content = parsedData.choices[0].delta?.content || '';
                                         if (content) {
                                             assistantMessage += content;
-                                            
+
                                             // Format content with simple markdown
                                             let formattedContent = assistantMessage
                                                 .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
                                                 .replace(/`([^`]+)`/g, '<code>$1</code>')
                                                 .replace(/\n/g, '<br>');
-                                            
+
                                             messageDiv.innerHTML = formattedContent;
                                             window.scrollTo(0, document.body.scrollHeight);
                                         }
@@ -510,28 +790,40 @@
                             }
                         }
                     }
-                    
+
+                    // Clean up any remaining search indicator
+                    if (searchIndicatorRow && searchIndicatorRow.parentNode) {
+                        searchIndicatorRow.parentNode.removeChild(searchIndicatorRow);
+                        searchIndicatorRow = null;
+                    }
+
                     // Save the complete message to conversation history
                     conversationHistory.push({
                         role: 'assistant',
                         content: assistantMessage
                     });
-                    
+
                 } catch (error) {
                     console.error('Error:', error);
-                    
+
                     // Hide loading indicator
                     hideLoadingIndicator();
-                    
+
                     // Remove the streaming message row if it exists
                     if (messageRow.parentNode) {
                         messageRow.parentNode.removeChild(messageRow);
                     }
-                    
+
+                    // Clean up any remaining search indicator
+                    if (searchIndicatorRow && searchIndicatorRow.parentNode) {
+                        searchIndicatorRow.parentNode.removeChild(searchIndicatorRow);
+                        searchIndicatorRow = null;
+                    }
+
                     // Display error message
                     addMessage('assistant', `Error: ${error.message || 'An error occurred while processing your request.'}`);
                 }
-                
+
                 // Focus the appropriate input box
                 if (hasStartedConversation) {
                     bottomUserInput.focus();
@@ -539,7 +831,7 @@
                     userInput.focus();
                 }
             }
-            
+
             // Initialize - focus the input field
             userInput.focus();
         });
