@@ -901,10 +901,25 @@
                                             chatContainer.appendChild(searchIndicatorRow);
                                         }
 
-                                        // Track this search indicator
-                                        localSearchIndicators.push(searchIndicatorRow);
-                                        localToolCalls[toolCallId || 'default'] = searchIndicatorRow;
-
+                                        // Store query information in the indicator for later retrieval
+                                        let queryInfo = '';
+                                        if (functionArgs.q) {
+                                            queryInfo = functionArgs.q;
+                                        } else if (functionArgs.query) {
+                                            queryInfo = functionArgs.query;
+                                        } else if (Object.keys(functionArgs).length > 0) {
+                                            // Just get the first argument
+                                            const firstKey = Object.keys(functionArgs)[0];
+                                            if (typeof functionArgs[firstKey] === 'string') {
+                                                queryInfo = functionArgs[firstKey];
+                                            }
+                                        }
+                                        searchIndicatorRow.dataset.queryInfo = queryInfo;
+                                        
+                                        // Store this search indicator
+                                        searchIndicators.push(searchIndicatorRow);
+                                        toolCalls[toolCallId || 'default'] = searchIndicatorRow;
+                                        
                                         // Only scroll if user is already at the bottom
                                         if (isScrolledToBottom()) {
                                             window.scrollTo(0, document.body.scrollHeight);
@@ -929,9 +944,9 @@
                                                             parsedData.choices[0].delta.tool_call_id) ||
                                                            'default';
 
-                                        const correspondingIndicator = localToolCalls[toolCallId] ||
-                                                                      (localSearchIndicators.length > 0 ?
-                                                                       localSearchIndicators[localSearchIndicators.length - 1] :
+                                        const correspondingIndicator = toolCalls[toolCallId] ||
+                                                                      (searchIndicators.length > 0 ?
+                                                                       searchIndicators[searchIndicators.length - 1] :
                                                                        (searchIndicatorRow ? searchIndicatorRow : null));
 
                                         logDebug("Looking for indicator with ID:", toolCallId, "Found:", !!correspondingIndicator);
@@ -950,8 +965,8 @@
                                             toolMessageRow.appendChild(toolMessageDiv);
 
                                             // Remove this indicator from our tracking
-                                            delete localToolCalls[toolCallId];
-                                            localSearchIndicators = localSearchIndicators.filter(indicator => indicator !== correspondingIndicator);
+                                            delete toolCalls[toolCallId];
+                                            searchIndicators = searchIndicators.filter(indicator => indicator !== correspondingIndicator);
                                         } else {
                                             // Create a new row if we don't have a search indicator
                                             toolMessageRow = document.createElement('div');
@@ -984,7 +999,15 @@
                                         // Create the header
                                         const toolHeader = document.createElement('h4');
                                         toolHeader.className = 'collapsed';
-                                        toolHeader.textContent = 'Search information';
+                                        
+                                        // Get the original search query if available from the indicator
+                                        let queryText = '';
+                                        if (correspondingIndicator && correspondingIndicator.dataset && correspondingIndicator.dataset.queryInfo) {
+                                            queryText = correspondingIndicator.dataset.queryInfo;
+                                        }
+                                        
+                                        toolHeader.textContent = queryText ? `Search results: "${queryText}"` : 'Search results';
+                                        
                                         toolResults.appendChild(toolHeader);
 
                                         // Create the content container (collapsed by default)
