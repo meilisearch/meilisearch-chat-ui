@@ -542,10 +542,17 @@
             bottomSettingsButton.addEventListener('click', promptForCredentials);
 
             // Conversation history
-            let conversationHistory = [{
-                role: 'system',
-                content: 'You are a helpful assistant and are capable of finding information by yourself. Always announce when you plan to call a tool: Tell me just before calling the tool.'
-            }];
+            const systemPrompt = 'You are a highly capable research assistant with access to powerful search tools. IMPORTANT INSTRUCTIONS:\n\n1. When answering questions, you MUST make multiple tool calls (at least 2-3) to gather comprehensive information.\n\n2. Use different search queries for each tool call - vary keywords, rephrase questions, and explore different semantic angles to ensure broad coverage.\n\n3. Always explicitly announce BEFORE making each tool call by saying: "I\'ll search for [specific information] now."\n\n4. Combine information from ALL tool calls to provide complete, nuanced answers rather than relying on a single source.\n\n5. For complex topics, break down your research into multiple targeted queries rather than using a single generic search.';
+            let conversationHistory = [
+                {
+                    role: 'system',
+                    content: systemPrompt
+                },
+                {
+                    role: 'developer',
+                    content: systemPrompt
+                }
+            ];
 
             // Auto-resize textarea
             function adjustTextareaHeight(textarea) {
