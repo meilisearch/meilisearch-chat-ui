@@ -903,9 +903,8 @@
                                             window.scrollTo(0, document.body.scrollHeight);
                                         }
                                     }
-                                    // Handle tool event results or tool output
-                                    else if (parsedData.object === "chat.completion.tool.event" ||
-                                             parsedData.object === "chat.completion.tool.output" ||
+                                    // Handle tool output
+                                    else if (parsedData.object === "chat.completion.tool.output" ||
                                              (parsedData.choices &&
                                               parsedData.choices[0] &&
                                               parsedData.choices[0].delta &&
@@ -961,7 +960,7 @@
 
                                         // Format the tool content
                                         let toolContent = '';
-                                        if (parsedData.object === "chat.completion.tool.output" || parsedData.object === "chat.completion.tool.event") {
+                                        if (parsedData.object === "chat.completion.tool.output") {
                                             toolContent = parsedData.tool.content || '';
                                         } else if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
                                             toolContent = parsedData.choices[0].delta.content || '';
