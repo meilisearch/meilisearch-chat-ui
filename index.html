@@ -131,7 +131,7 @@
             margin: 1rem 0;
             color: #ccc;
         }
-        
+
         code {
             background-color: rgba(0, 0, 0, 0.2);
             padding: 2px 4px;
@@ -168,7 +168,7 @@
             margin: 10px 0;
         }
 
-        .message-content ul, 
+        .message-content ul,
         .message-content ol {
             padding-left: 20px;
         }
@@ -187,9 +187,9 @@
             border-radius: 4px;
         }
 
-        .message-content h1, 
-        .message-content h2, 
-        .message-content h3, 
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
         .message-content h4 {
             margin-top: 16px;
             margin-bottom: 10px;
@@ -227,7 +227,7 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .search-indicator-container::after {
             content: '';
             position: absolute;
@@ -238,7 +238,7 @@
             background: linear-gradient(90deg, transparent, #999, transparent);
             animation: loading 1.5s infinite;
         }
-        
+
         .search-pulse {
             width: 20px;
             height: 20px;
@@ -249,7 +249,7 @@
             box-shadow: 0 0 0 rgba(119, 119, 119, 0.5);
             position: relative;
         }
-        
+
         .search-pulse::after {
             content: '';
             position: absolute;
@@ -262,13 +262,13 @@
             animation: ripple 1.5s infinite ease-out;
             opacity: 0;
         }
-        
+
         .search-text {
             color: #bbb;
             font-weight: 400;
             font-size: 0.95em;
         }
-        
+
         .search-params {
             margin-top: 3px;
             font-size: 0.8em;
@@ -283,7 +283,7 @@
             border-left: 3px solid #777;
             margin-bottom: 10px;
         }
-        
+
         .tool-results h4 {
             margin-top: 0;
             margin-bottom: 0;
@@ -295,7 +295,7 @@
             user-select: none;
             font-size: 0.95em;
         }
-        
+
         .tool-results h4::before {
             content: '';
             margin-right: 8px;
@@ -304,20 +304,20 @@
             background-color: #777;
             border-radius: 50%;
         }
-        
+
         .tool-results-content {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
             margin-top: 0;
         }
-        
+
         .tool-results-content.expanded {
             max-height: 500px;
             margin-top: 12px;
             overflow-y: auto;
         }
-        
+
         .tool-results h4::after {
             content: '›';
             margin-left: auto;
@@ -325,7 +325,7 @@
             transition: transform 0.3s ease;
             transform: rotate(90deg);
         }
-        
+
         .tool-results h4.collapsed::after {
             transform: rotate(0deg);
         }
@@ -339,7 +339,7 @@
             color: #bbb;
             font-size: 0.9em;
         }
-        
+
         .movie-item:hover {
             background-color: #32323e;
         }
@@ -352,7 +352,10 @@
 
         .tool-message {
             animation: fadeIn 0.5s ease-in-out;
+            margin-bottom: 12px;
         }
+
+
 
         @keyframes pulse {
             0% {
@@ -368,7 +371,7 @@
                 opacity: 0.7;
             }
         }
-        
+
         @keyframes ripple {
             0% {
                 transform: scale(1);
@@ -388,7 +391,7 @@
             70% { opacity: 0.7; transform: translateY(-2px); }
             100% { opacity: 1; transform: translateY(0); }
         }
-        
+
         @keyframes loading {
             0% { left: -100%; }
             50% { left: 100%; }
@@ -464,6 +467,15 @@
             let meilisearchUrl = localStorage.getItem('meilisearchUrl');
             let apiKey = localStorage.getItem('meilisearchApiKey');
 
+            // Debug logging enabled for console only
+            let toolCalls = {}; // Map tool_call_id to their search indicator elements
+            let searchIndicators = []; // Array to track multiple search indicators
+
+            // Debug logging function
+            function logDebug(label, data) {
+                console.log(`[DEBUG] ${label}:`, data);
+            }
+
             // Conversation state
             let hasStartedConversation = false;
 
@@ -530,7 +542,10 @@
             bottomSettingsButton.addEventListener('click', promptForCredentials);
 
             // Conversation history
-            let conversationHistory = [];
+            let conversationHistory = [{
+                role: 'system',
+                content: 'You are a helpful assistant and are capable of finding information by yourself. Always announce when you plan to call a tool: Tell me just before calling the tool.'
+            }];
 
             // Auto-resize textarea
             function adjustTextareaHeight(textarea) {
@@ -573,22 +588,22 @@
                 const tolerance = 50; // pixels of tolerance
                 return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - tolerance);
             }
-            
+
             function addMessage(role, content) {
                 // If this is the first message, switch to bottom input
                 if (!hasStartedConversation) {
                     switchToBottomInput();
                 }
-                
+
                 // Check if user was at the bottom before adding content
                 const wasAtBottom = isScrolledToBottom();
-                
+
                 const messageRow = document.createElement('div');
                 messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
-                
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-content';
-                
+
                 // Use marked.js to render markdown
                 // Configure marked options
                 marked.setOptions({
@@ -601,23 +616,23 @@
                     breaks: true,
                     gfm: true
                 });
-                
+
                 // Render markdown
                 messageDiv.innerHTML = marked.parse(content);
-                
+
                 // Apply syntax highlighting to any code blocks
                 messageDiv.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
-                
+
                 messageRow.appendChild(messageDiv);
                 chatContainer.appendChild(messageRow);
-                
+
                 // Only scroll to bottom if user was already at the bottom
                 if (wasAtBottom) {
                     window.scrollTo(0, document.body.scrollHeight);
                 }
-                
+
                 // Add to conversation history
                 conversationHistory.push({
                     role: role,
@@ -700,6 +715,8 @@
                 let assistantMessage = '';
                 let currentAssistantMessageElement = null;
                 let toolEventActive = false;
+                let localSearchIndicators = []; // Local array to track multiple search indicators
+                let localToolCalls = {}; // Local map of tool_call_id to search indicator elements
                 let searchIndicatorRow = null;
 
                 // Create a message row for the assistant response
@@ -753,6 +770,9 @@
                         // Decode the chunk
                         const chunk = decoder.decode(value, { stream: true });
 
+                        // Log raw chunk in debug mode
+                        logDebug("Raw chunk", chunk);
+
                         // Process each line in the chunk
                         const lines = chunk.split('\n').filter(line => line.trim() !== '');
                         for (const line of lines) {
@@ -760,17 +780,56 @@
                             if (line.startsWith('data: ')) {
                                 const data = line.substring(6);
 
+                                // Log raw data line
+                                logDebug("Stream data line", data);
+
                                 // Check if it's the [DONE] message
                                 if (data === '[DONE]') continue;
+
+                                // Log raw data to console
+                                logDebug('Raw data', data);
 
                                 try {
                                     const parsedData = JSON.parse(data);
 
+                                    // Log parsed data to console only
+
+                                    // Debug: log all events
+                                    logDebug("Event type", parsedData.object || "delta");
+                                    logDebug("Parsed data", parsedData);
+
                                     // Handle tool call event
-                                    if (parsedData.object === "chat.completion.tool.call") {
+                                    if (parsedData.object === "chat.completion.tool.call" ||
+                                       (parsedData.choices && parsedData.choices[0] &&
+                                        parsedData.choices[0].delta &&
+                                        parsedData.choices[0].delta.tool_calls)) {
+
+                                        // Extract tool call information from different possible formats
+                                        let toolCallData = null;
+                                        let toolCallId = null;
+
+                                        if (parsedData.object === "chat.completion.tool.call") {
+                                            toolCallData = parsedData.tool;
+                                            toolCallId = parsedData.tool_call_id;
+                                        } else if (parsedData.choices &&
+                                                  parsedData.choices[0] &&
+                                                  parsedData.choices[0].delta &&
+                                                  parsedData.choices[0].delta.tool_calls) {
+                                            const toolCall = parsedData.choices[0].delta.tool_calls[0];
+                                            toolCallData = {
+                                                function: toolCall.function || {}
+                                            };
+                                            toolCallId = toolCall.id;
+                                        }
+
+                                        // Only proceed if we have valid tool call data
+                                        if (!toolCallData) continue;
+
+                                        logDebug('Processing tool call', { toolCallData, toolCallId });
                                         // Create the search indicator element
-                                        searchIndicatorRow = document.createElement('div');
+                                        const searchIndicatorRow = document.createElement('div');
                                         searchIndicatorRow.className = 'message-row';
+                                        searchIndicatorRow.dataset.toolCallId = toolCallId || 'default'; // Store the tool_call_id
 
                                         const searchIndicatorContainer = document.createElement('div');
                                         searchIndicatorContainer.className = 'search-indicator-container';
@@ -782,17 +841,44 @@
                                         searchInfo.className = 'search-info';
 
                                         // Get function name and arguments
-                                        const functionName = parsedData.tool.function.name;
-                                        const functionArgs = JSON.parse(parsedData.tool.function.arguments);
+                                        const functionName = toolCallData.function.name || 'unknown';
+                                        const functionArgs = toolCallData.function.arguments ?
+                                            (typeof toolCallData.function.arguments === 'string' ?
+                                                JSON.parse(toolCallData.function.arguments) :
+                                                toolCallData.function.arguments) :
+                                            {};
 
                                         // Create search text and params
                                         const searchText = document.createElement('div');
                                         searchText.className = 'search-text';
-                                        searchText.textContent = `Searching for "${functionArgs.q}"`;
+
+                                        // Try to extract the most relevant info from args
+                                        let displayText = '';
+                                        try {
+                                            if (functionArgs.q) {
+                                                displayText = `"${functionArgs.q}"`;
+                                            } else if (functionArgs.query) {
+                                                displayText = `"${functionArgs.query}"`;
+                                            } else if (Object.keys(functionArgs).length > 0) {
+                                                // Just display the first argument for simplicity
+                                                const firstKey = Object.keys(functionArgs)[0];
+                                                const value = functionArgs[firstKey];
+                                                if (typeof value === 'string') {
+                                                    displayText = `${firstKey}: "${value}"`;
+                                                } else {
+                                                    displayText = `${firstKey}: ${JSON.stringify(value).substring(0, 50)}`;
+                                                }
+                                            }
+                                        } catch (e) {
+                                            displayText = '';
+                                            console.error('Error formatting function args:', e);
+                                        }
+
+                                        searchText.textContent = `Running ${functionName}${displayText ? ' with ' + displayText : ''}`;
 
                                         const searchParams = document.createElement('div');
                                         searchParams.className = 'search-params';
-                                        searchParams.textContent = `Index: ${functionArgs.index_uid}`;
+                                        searchParams.textContent = `Tool ID: ${toolCallId || 'default'}`;
 
                                         // Assemble the indicator
                                         searchInfo.appendChild(searchText);
@@ -807,80 +893,116 @@
                                         } else {
                                             chatContainer.appendChild(searchIndicatorRow);
                                         }
-                                        
+
+                                        // Track this search indicator
+                                        localSearchIndicators.push(searchIndicatorRow);
+                                        localToolCalls[toolCallId || 'default'] = searchIndicatorRow;
+
                                         // Only scroll if user is already at the bottom
                                         if (isScrolledToBottom()) {
                                             window.scrollTo(0, document.body.scrollHeight);
                                         }
                                     }
                                     // Handle tool event results or tool output
-                                    else if (parsedData.object === "chat.completion.tool.event" || parsedData.object === "chat.completion.tool.output") {
+                                    else if (parsedData.object === "chat.completion.tool.event" ||
+                                             parsedData.object === "chat.completion.tool.output" ||
+                                             (parsedData.choices &&
+                                              parsedData.choices[0] &&
+                                              parsedData.choices[0].delta &&
+                                              parsedData.choices[0].delta.tool_call_id)) {
+
+                                        logDebug('Processing tool output', parsedData);
                                         // Don't create a new row if we have a search indicator, transform it instead
                                         let toolMessageRow, toolMessageDiv;
-                                        
-                                        if (searchIndicatorRow && searchIndicatorRow.parentNode) {
+
+                                        // Find the corresponding search indicator for this tool_call_id
+                                        // Fallback: if no tool_call_id is provided, use the most recent indicator
+                                        const toolCallId = parsedData.tool_call_id ||
+                                                           (parsedData.choices && parsedData.choices[0] &&
+                                                            parsedData.choices[0].delta &&
+                                                            parsedData.choices[0].delta.tool_call_id) ||
+                                                           'default';
+
+                                        const correspondingIndicator = localToolCalls[toolCallId] ||
+                                                                      (localSearchIndicators.length > 0 ?
+                                                                       localSearchIndicators[localSearchIndicators.length - 1] :
+                                                                       (searchIndicatorRow ? searchIndicatorRow : null));
+
+                                        logDebug("Looking for indicator with ID:", toolCallId, "Found:", !!correspondingIndicator);
+
+                                        if (correspondingIndicator && correspondingIndicator.parentNode) {
                                             // Transform the search indicator into results container
-                                            toolMessageRow = searchIndicatorRow;
+                                            toolMessageRow = correspondingIndicator;
                                             toolMessageRow.className = 'message-row tool-message';
-                                            
+
                                             // Clear the existing content
                                             toolMessageRow.innerHTML = '';
-                                            
+
                                             // Create new message div
                                             toolMessageDiv = document.createElement('div');
                                             toolMessageDiv.className = 'message-content';
                                             toolMessageRow.appendChild(toolMessageDiv);
-                                            
-                                            // Reset the search indicator reference
-                                            searchIndicatorRow = null;
+
+                                            // Remove this indicator from our tracking
+                                            delete localToolCalls[toolCallId];
+                                            localSearchIndicators = localSearchIndicators.filter(indicator => indicator !== correspondingIndicator);
                                         } else {
                                             // Create a new row if we don't have a search indicator
                                             toolMessageRow = document.createElement('div');
                                             toolMessageRow.className = 'message-row tool-message';
-                                            
+
                                             toolMessageDiv = document.createElement('div');
                                             toolMessageDiv.className = 'message-content';
                                             toolMessageRow.appendChild(toolMessageDiv);
-                                            
+
                                             // Add to chat container
                                             chatContainer.appendChild(toolMessageRow);
                                         }
-                                        
+
                                         // Format the tool content
-                                        const toolContent = parsedData.tool.content;
-                                        
+                                        let toolContent = '';
+                                        if (parsedData.object === "chat.completion.tool.output" || parsedData.object === "chat.completion.tool.event") {
+                                            toolContent = parsedData.tool.content || '';
+                                        } else if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
+                                            toolContent = parsedData.choices[0].delta.content || '';
+                                            if (parsedData.choices[0].delta.function_call && parsedData.choices[0].delta.function_call.arguments) {
+                                                toolContent = parsedData.choices[0].delta.function_call.arguments;
+                                            }
+                                        }
+                                        logDebug('Tool content', toolContent);
+
                                         // Create a container for results with collapsible content
                                         const toolResults = document.createElement('div');
                                         toolResults.className = 'tool-results';
-                                        
+
                                         // Create the header
                                         const toolHeader = document.createElement('h4');
                                         toolHeader.className = 'collapsed';
                                         toolHeader.textContent = 'Search information';
                                         toolResults.appendChild(toolHeader);
-                                        
+
                                         // Create the content container (collapsed by default)
                                         const toolResultsContent = document.createElement('div');
                                         toolResultsContent.className = 'tool-results-content';
-                                        
+
                                         // Split by newlines and format as a list
                                         const movieResults = toolContent.split('\n').filter(item => item.trim() !== '');
-                                        
+
                                         for (const movie of movieResults) {
                                             if (movie.startsWith('A movie called')) {
                                                 const titlePart = movie.split('about')[0].replace('A movie called', '').trim();
                                                 const descriptionPart = movie.split('about')[1]?.trim() || '';
-                                                
+
                                                 const movieItem = document.createElement('div');
                                                 movieItem.className = 'movie-item';
-                                                
+
                                                 const movieTitle = document.createElement('div');
                                                 movieTitle.className = 'movie-title';
                                                 movieTitle.textContent = `${titlePart}`;
-                                                
+
                                                 const movieDesc = document.createElement('div');
                                                 movieDesc.textContent = descriptionPart;
-                                                
+
                                                 movieItem.appendChild(movieTitle);
                                                 movieItem.appendChild(movieDesc);
                                                 toolResultsContent.appendChild(movieItem);
@@ -891,19 +1013,19 @@
                                                 toolResultsContent.appendChild(movieItem);
                                             }
                                         }
-                                        
+
                                         // Add the content to the results container
                                         toolResults.appendChild(toolResultsContent);
-                                        
+
                                         // Add click handler to toggle expansion
                                         toolHeader.addEventListener('click', function() {
                                             this.classList.toggle('collapsed');
                                             toolResultsContent.classList.toggle('expanded');
                                         });
-                                        
+
                                         // Add the tool results to the message
                                         toolMessageDiv.appendChild(toolResults);
-                                        
+
                                         // Only scroll if user is already at the bottom
                                         if (isScrolledToBottom()) {
                                             window.scrollTo(0, document.body.scrollHeight);
@@ -926,15 +1048,15 @@
                                                 breaks: true,
                                                 gfm: true
                                             });
-                                            
+
                                             // Render markdown
                                             messageDiv.innerHTML = marked.parse(assistantMessage);
-                                            
+
                                             // Apply syntax highlighting to any code blocks
                                             messageDiv.querySelectorAll('pre code').forEach((block) => {
                                                 hljs.highlightElement(block);
                                             });
-                                            
+
                                             // Only scroll if user is already at the bottom
                                             if (isScrolledToBottom()) {
                                                 window.scrollTo(0, document.body.scrollHeight);
@@ -943,16 +1065,23 @@
                                     }
                                 } catch (e) {
                                     console.error('Error parsing JSON from stream:', e);
+                                    logDebug('JSON parse error', { error: e.message, data });
+
+                                    // Log parse error to console
+                                    logDebug('Parse Error', { error: e.message, data });
                                 }
                             }
                         }
                     }
 
-                    // Clean up any remaining search indicator
-                    if (searchIndicatorRow && searchIndicatorRow.parentNode) {
-                        searchIndicatorRow.parentNode.removeChild(searchIndicatorRow);
-                        searchIndicatorRow = null;
+                    // Clean up any remaining search indicators
+                    for (const indicator of localSearchIndicators) {
+                        if (indicator && indicator.parentNode) {
+                            indicator.parentNode.removeChild(indicator);
+                        }
                     }
+                    localSearchIndicators = [];
+                    localToolCalls = {};
 
                     // Save the complete message to conversation history
                     conversationHistory.push({
@@ -971,11 +1100,14 @@
                         messageRow.parentNode.removeChild(messageRow);
                     }
 
-                    // Clean up any remaining search indicator
-                    if (searchIndicatorRow && searchIndicatorRow.parentNode) {
-                        searchIndicatorRow.parentNode.removeChild(searchIndicatorRow);
-                        searchIndicatorRow = null;
+                    // Clean up any remaining search indicators
+                    for (const indicator of localSearchIndicators) {
+                        if (indicator && indicator.parentNode) {
+                            indicator.parentNode.removeChild(indicator);
+                        }
                     }
+                    localSearchIndicators = [];
+                    localToolCalls = {};
 
                     // Display error message
                     addMessage('assistant', `Error: ${error.message || 'An error occurred while processing your request.'}`);
