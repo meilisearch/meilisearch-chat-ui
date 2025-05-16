@@ -499,7 +499,7 @@
                     promptForCredentials();
                     return;
                 }
-                
+
                 modelName = prompt("Please enter the model name to use", modelName || "gpt-4o");
                 if (!modelName) {
                     modelName = "gpt-4o"; // Default model if none provided
@@ -548,17 +548,7 @@
             bottomSettingsButton.addEventListener('click', promptForCredentials);
 
             // Conversation history
-            const systemPrompt = 'You are a highly capable research assistant with access to powerful search tools. IMPORTANT INSTRUCTIONS:\n\n1. When answering questions, you MUST make multiple tool calls (at least 2-3) to gather comprehensive information.\n\n2. Use different search queries for each tool call - vary keywords, rephrase questions, and explore different semantic angles to ensure broad coverage.\n\n3. Always explicitly announce BEFORE making each tool call by saying: "I\'ll search for [specific information] now."\n\n4. Combine information from ALL tool calls to provide complete, nuanced answers rather than relying on a single source.\n\n5. For complex topics, break down your research into multiple targeted queries rather than using a single generic search.';
-            let conversationHistory = [
-                {
-                    role: 'system',
-                    content: systemPrompt
-                },
-                {
-                    role: 'developer',
-                    content: systemPrompt
-                }
-            ];
+            let conversationHistory = [];
 
             // Auto-resize textarea
             function adjustTextareaHeight(textarea) {
@@ -741,11 +731,10 @@
                 messageRow.appendChild(messageDiv);
 
                 try {
-                    // Prepare the request body following OpenAI API structure
+                    // Prepare the request body with only essential fields
                     const requestBody = {
                         model: modelName,
                         messages: conversationHistory,
-                        temperature: 0.7,
                         max_tokens: 1000,
                         stream: true // Enable streaming
                     };
@@ -810,6 +799,20 @@
                                     // Debug: log all events
                                     logDebug("Event type", parsedData.object || "delta");
                                     logDebug("Parsed data", parsedData);
+
+                                    // Check if this is a Mistral or similar initialization chunk
+                                    if (parsedData.choices &&
+                                        parsedData.choices[0] &&
+                                        parsedData.choices[0].delta &&
+                                        ((parsedData.choices[0].delta.role === "assistant" &&
+                                          parsedData.choices[0].delta.content === "") ||
+                                         // Also check for empty delta with null fields
+                                         (parsedData.choices[0].delta.content === "" &&
+                                          parsedData.choices[0].delta.function_call === null &&
+                                          parsedData.choices[0].delta.tool_calls === null))) {
+                                        // This is an initialization message, nothing to process
+                                        continue;
+                                    }
 
                                     // Handle tool call event
                                     if (parsedData.object === "chat.completion.tool.call" ||
@@ -921,11 +924,11 @@
                                             }
                                         }
                                         searchIndicatorRow.dataset.queryInfo = queryInfo;
-                                        
+
                                         // Store this search indicator
                                         searchIndicators.push(searchIndicatorRow);
                                         toolCalls[toolCallId || 'default'] = searchIndicatorRow;
-                                        
+
                                         // Only scroll if user is already at the bottom
                                         if (isScrolledToBottom()) {
                                             window.scrollTo(0, document.body.scrollHeight);
@@ -1005,15 +1008,15 @@
                                         // Create the header
                                         const toolHeader = document.createElement('h4');
                                         toolHeader.className = 'collapsed';
-                                        
+
                                         // Get the original search query if available from the indicator
                                         let queryText = '';
                                         if (correspondingIndicator && correspondingIndicator.dataset && correspondingIndicator.dataset.queryInfo) {
                                             queryText = correspondingIndicator.dataset.queryInfo;
                                         }
-                                        
+
                                         toolHeader.textContent = queryText ? `Search results: "${queryText}"` : 'Search results';
-                                        
+
                                         toolResults.appendChild(toolHeader);
 
                                         // Create the content container (collapsed by default)
@@ -1068,8 +1071,18 @@
                                     }
                                     // Handle regular message delta
                                     else if (parsedData.choices && parsedData.choices.length > 0) {
-                                        const content = parsedData.choices[0].delta?.content || '';
-                                        if (content) {
+                                        // Support OpenAI, Mistral, and other API formats
+                                        const content = parsedData.choices[0].delta?.content;
+
+                                        // Process even if content is empty string (but not null/undefined)
+                                        // This ensures we don't miss any deliberate empty strings
+                                        if (content !== undefined && content !== null) {
+                                            // Skip if this appears to be just an initialization message
+                                            if (content === "" &&
+                                                parsedData.choices[0].delta.role === "assistant" &&
+                                                parsedData.object === "chat.completion.chunk") {
+                                                continue;
+                                            }
                                             assistantMessage += content;
 
                                             // Use marked.js to render markdown
