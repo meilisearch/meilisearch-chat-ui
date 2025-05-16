@@ -466,6 +466,7 @@
             // Configuration variables
             let meilisearchUrl = localStorage.getItem('meilisearchUrl');
             let apiKey = localStorage.getItem('meilisearchApiKey');
+            let modelName = localStorage.getItem('modelName') || 'gpt-4o';
 
             // Debug logging enabled for console only
             let toolCalls = {}; // Map tool_call_id to their search indicator elements
@@ -498,10 +499,15 @@
                     promptForCredentials();
                     return;
                 }
+                
+                modelName = prompt("Please enter the model name to use", modelName || "gpt-4o");
+                if (!modelName) {
+                    modelName = "gpt-4o"; // Default model if none provided
+                }
 
-                // Save to localStorage
                 localStorage.setItem('meilisearchUrl', meilisearchUrl);
                 localStorage.setItem('meilisearchApiKey', apiKey);
+                localStorage.setItem('modelName', modelName);
             }
 
             // DOM Elements
@@ -737,7 +743,7 @@
                 try {
                     // Prepare the request body following OpenAI API structure
                     const requestBody = {
-                        model: "gpt-4o",
+                        model: modelName,
                         messages: conversationHistory,
                         temperature: 0.7,
                         max_tokens: 1000,
