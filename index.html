@@ -739,8 +739,8 @@
                         stream: true // Enable streaming
                     };
 
-                    // Make the API call to the /chat endpoint with streaming
-                    const response = await fetch(`${meilisearchUrl}/chat`, {
+                    // Make the API call to the /chat/completions endpoint with streaming
+                    const response = await fetch(`${meilisearchUrl}/chat/completions`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
