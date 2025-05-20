@@ -814,7 +814,7 @@
                                         continue;
                                     }
 
-                                    // Handle error event
+                                    // Handle global error event
                                     if (parsedData.object === "chat.completion.error") {
                                         // Create error message
                                         const errorRow = document.createElement('div');
@@ -840,6 +840,58 @@
                                             role: 'assistant',
                                             content: `Error: ${errorContent}`
                                         });
+                                    }
+                                    // Handle tool-specific error
+                                    else if (parsedData.object === "chat.completion.tool.error") {
+                                        logDebug('Processing tool error', parsedData);
+                                        
+                                        // Find the corresponding search indicator for this tool_call_id
+                                        const toolCallId = parsedData.tool?.tool_call_id || 'default';
+                                        const correspondingIndicator = toolCalls[toolCallId] ||
+                                                                       (searchIndicators.length > 0 ?
+                                                                        searchIndicators[searchIndicators.length - 1] :
+                                                                        null);
+                                        
+                                        // Create or transform message row
+                                        let errorMessageRow, errorMessageDiv;
+                                        
+                                        if (correspondingIndicator && correspondingIndicator.parentNode) {
+                                            // Transform the search indicator into error container
+                                            errorMessageRow = correspondingIndicator;
+                                            errorMessageRow.className = 'message-row tool-message';
+                                            
+                                            // Clear the existing content
+                                            errorMessageRow.innerHTML = '';
+                                            
+                                            // Create new message div
+                                            errorMessageDiv = document.createElement('div');
+                                            errorMessageDiv.className = 'message-content';
+                                            errorMessageRow.appendChild(errorMessageDiv);
+                                            
+                                            // Remove this indicator from our tracking
+                                            delete toolCalls[toolCallId];
+                                            searchIndicators = searchIndicators.filter(indicator => indicator !== correspondingIndicator);
+                                        } else {
+                                            // Create a new row if we don't have a search indicator
+                                            errorMessageRow = document.createElement('div');
+                                            errorMessageRow.className = 'message-row tool-message';
+                                            
+                                            errorMessageDiv = document.createElement('div');
+                                            errorMessageDiv.className = 'message-content';
+                                            errorMessageRow.appendChild(errorMessageDiv);
+                                            
+                                            // Add to chat container
+                                            chatContainer.appendChild(errorMessageRow);
+                                        }
+                                        
+                                        // Format the error content
+                                        const errorContent = parsedData.tool?.content || 'Tool error occurred';
+                                        errorMessageDiv.innerHTML = marked.parse(`**Tool Error:** ${errorContent}`);
+                                        
+                                        // Only scroll if user is already at the bottom
+                                        if (isScrolledToBottom()) {
+                                            window.scrollTo(0, document.body.scrollHeight);
+                                        }
                                     }
                                     // Handle tool call event
                                     else if (parsedData.object === "chat.completion.tool.call" ||
