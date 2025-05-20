@@ -814,8 +814,35 @@
                                         continue;
                                     }
 
+                                    // Handle error event
+                                    if (parsedData.object === "chat.completion.error") {
+                                        // Create error message
+                                        const errorRow = document.createElement('div');
+                                        errorRow.className = 'message-row assistant-message';
+                                        
+                                        const errorDiv = document.createElement('div');
+                                        errorDiv.className = 'message-content';
+                                        
+                                        // Get error message
+                                        let errorContent = parsedData.tool || 'Unknown error occurred';
+                                        errorDiv.innerHTML = marked.parse(`**Error:** ${errorContent}`);
+                                        
+                                        errorRow.appendChild(errorDiv);
+                                        chatContainer.appendChild(errorRow);
+                                        
+                                        // Only scroll if user is already at the bottom
+                                        if (isScrolledToBottom()) {
+                                            window.scrollTo(0, document.body.scrollHeight);
+                                        }
+                                        
+                                        // Update conversation history
+                                        conversationHistory.push({
+                                            role: 'assistant',
+                                            content: `Error: ${errorContent}`
+                                        });
+                                    }
                                     // Handle tool call event
-                                    if (parsedData.object === "chat.completion.tool.call" ||
+                                    else if (parsedData.object === "chat.completion.tool.call" ||
                                        (parsedData.choices && parsedData.choices[0] &&
                                         parsedData.choices[0].delta &&
                                         parsedData.choices[0].delta.tool_calls)) {
@@ -992,7 +1019,7 @@
                                         // Format the tool content
                                         let toolContent = '';
                                         if (parsedData.object === "chat.completion.tool.output") {
-                                            toolContent = parsedData.tool.content || '';
+                                            toolContent = parsedData.tool?.content || '';
                                         } else if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
                                             toolContent = parsedData.choices[0].delta.content || '';
                                             if (parsedData.choices[0].delta.function_call && parsedData.choices[0].delta.function_call.arguments) {
@@ -1026,8 +1053,10 @@
                                         // Split by newlines and format as a list
                                         const movieResults = toolContent.split('\n').filter(item => item.trim() !== '');
 
-                                        for (const movie of movieResults) {
-                                            if (movie.startsWith('A movie called')) {
+                                        // Check if content is long enough to process
+                                        if (movieResults.length > 0) {
+                                            for (const movie of movieResults) {
+                                                if (movie.startsWith('A movie called')) {
                                                 const titlePart = movie.split('about')[0].replace('A movie called', '').trim();
                                                 const descriptionPart = movie.split('about')[1]?.trim() || '';
 
@@ -1050,6 +1079,14 @@
                                                 movieItem.textContent = movie;
                                                 toolResultsContent.appendChild(movieItem);
                                             }
+                                        }
+                                        } else {
+                                            // If we don't have movie results in the format we expect,
+                                            // just display the raw content
+                                            const contentItem = document.createElement('div');
+                                            contentItem.className = 'movie-item';
+                                            contentItem.textContent = toolContent;
+                                            toolResultsContent.appendChild(contentItem);
                                         }
 
                                         // Add the content to the results container
@@ -1081,6 +1118,13 @@
                                             if (content === "" &&
                                                 parsedData.choices[0].delta.role === "assistant" &&
                                                 parsedData.object === "chat.completion.chunk") {
+                                                continue;
+                                            }
+                                            
+                                            // Skip if this appears to be a function call without content
+                                            if (content === "" && 
+                                                (parsedData.choices[0].delta.function_call || 
+                                                 parsedData.choices[0].delta.tool_calls)) {
                                                 continue;
                                             }
                                             assistantMessage += content;
