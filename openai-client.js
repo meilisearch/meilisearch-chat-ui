@@ -12,11 +12,17 @@
 class OpenAIClient {
   constructor(apiKey, options = {}) {
     this.apiKey = apiKey;
-    this.baseURL = options.baseURL || 'https://api.openai.com/v1';
+    this.baseURL = options.baseURL || 'https://api.openai.com';
     
     // Ensure baseURL doesn't end with a trailing slash
     if (this.baseURL.endsWith('/')) {
       this.baseURL = this.baseURL.slice(0, -1);
+    }
+    
+    // Remove /v1 from the URL if present
+    if (this.baseURL.endsWith('/v1')) {
+      this.baseURL = this.baseURL.slice(0, -3);
+      console.warn('Removed /v1 from baseURL - it will be automatically added to the endpoint as needed');
     }
     
     // Detect if this is an Azure OpenAI endpoint
@@ -63,12 +69,12 @@ class OpenAIClient {
         // Azure uses a different authorization header
         headers['api-key'] = this.apiKey;
       } else {
-        // Standard OpenAI API
-        endpoint = this.baseURL.includes('/v1') ? 
-          `${this.baseURL}/chat/completions` : 
-          `${this.baseURL}/v1/chat/completions`;
+        // Standard OpenAI API - use /chat/completions directly
+        endpoint = `${this.baseURL}/chat/completions`;
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
+      
+      console.log(`Sending request to: ${endpoint}`);
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -125,7 +131,7 @@ class OpenAIClient {
       } else if (error.status === 404) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'endpoint_not_found',
-          message: `API endpoint not found. Please check your base URL: ${this.baseURL}`
+          message: `API endpoint not found. Please check your base URL: ${this.baseURL} (make sure you're using the root API URL without /v1)`
         }, 'error_' + Date.now());
       } else if (this.isAzure && error.status === 400) {
         // Special handling for Azure-specific errors
@@ -553,7 +559,14 @@ const openaiTools = {
     
     try {
       new URL(url);
-      return url.startsWith('http://') || url.startsWith('https://');
+      const isValid = url.startsWith('http://') || url.startsWith('https://');
+      
+      // Warn if URL contains /v1
+      if (isValid && url.includes('/v1')) {
+        console.warn('URL contains /v1 which is not recommended. Use the base API URL without /v1.');
+      }
+      
+      return isValid;
     } catch (e) {
       return false;
     }
@@ -570,6 +583,25 @@ const openaiTools = {
       throw new Error('Resource name and deployment name are required for Azure OpenAI');
     }
     return `https://${resourceName}.openai.azure.com/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+  },
+  
+  // Clean a base URL (remove trailing slashes and /v1)
+  cleanBaseUrl(url) {
+    if (!url) return 'https://api.openai.com';
+    
+    let cleanUrl = url.trim();
+    
+    // Remove trailing slash
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+    
+    // Remove /v1 suffix
+    if (cleanUrl.endsWith('/v1')) {
+      cleanUrl = cleanUrl.slice(0, -3);
+    }
+    
+    return cleanUrl;
   },
   
   // Helper to extract search parameters from function parameters

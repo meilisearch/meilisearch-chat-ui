@@ -65,9 +65,9 @@
               <label for="baseUrlInput" class="form-label">API Base URL</label>
               <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
-                <input type="text" class="form-control" id="baseUrlInput" placeholder="https://api.openai.com/v1">
+                <input type="text" class="form-control" id="baseUrlInput" placeholder="https://api.openai.com">
               </div>
-              <div class="form-text">Use a custom endpoint (e.g., for proxies or Azure OpenAI). <strong>Default:</strong> https://api.openai.com/v1</div>
+              <div class="form-text">Use a custom endpoint (e.g., for proxies or Azure OpenAI). <strong>Default:</strong> https://api.openai.com (no /v1)</div>
             </div>
             
 
@@ -140,6 +140,9 @@
       
       // Initialize the app
       function initApp() {
+        // Migrate existing settings from v1 URL if needed
+        migrateSettingsFromV1();
+        
         loadSettings();
         setupEventListeners();
         initializeClients();
@@ -182,7 +185,7 @@
       function loadSettings() {
         const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
         apiKeyInput.value = settings.apiKey || '';
-        baseUrlInput.value = settings.baseUrl || 'https://api.openai.com/v1';
+        baseUrlInput.value = settings.baseUrl || 'https://api.openai.com';
         modelSelect.value = settings.model || 'gpt-4-turbo';
         
         // Update UI to show if custom URL is being used
@@ -192,12 +195,27 @@
       // Simple empty function for backward compatibility
       function updateCustomUrlIndicator() {
         // No longer displays a custom API badge
+        // When using custom URL, logs to console for debugging
+        const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
+        if (settings.baseUrl && settings.baseUrl !== 'https://api.openai.com') {
+          console.log('Using custom API endpoint:', settings.baseUrl);
+        }
       }
 
       // Save settings to localStorage
       function saveSettings() {
         const apiKey = apiKeyInput.value.trim();
-        const baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
+        let baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com';
+        
+        // Clean up the base URL (remove /v1 suffix and trailing slashes)
+        if (baseUrl.endsWith('/v1')) {
+          baseUrl = baseUrl.slice(0, -3);
+          baseUrlInput.value = baseUrl; // Update the input field
+        }
+        if (baseUrl.endsWith('/')) {
+          baseUrl = baseUrl.slice(0, -1);
+          baseUrlInput.value = baseUrl; // Update the input field
+        }
         
         const settings = {
           apiKey: apiKey,
@@ -227,11 +245,20 @@
         if (settings.apiKey) {
           try {
             // Validate base URL format
-            const baseURL = settings.baseUrl || 'https://api.openai.com/v1';
+            let baseURL = settings.baseUrl || 'https://api.openai.com';
             const isValidURL = baseURL.match(/^https?:\/\/.+/i);
             
             if (!isValidURL) {
               throw new Error(`Invalid base URL format: ${baseURL}`);
+            }
+            
+            // Final cleanup of the URL before creating the client
+            if (baseURL.endsWith('/v1')) {
+              baseURL = baseURL.slice(0, -3);
+              console.log('Removed /v1 suffix from base URL');
+            }
+            if (baseURL.endsWith('/')) {
+              baseURL = baseURL.slice(0, -1);
             }
             
             openaiClient = new OpenAIClient(settings.apiKey, {
@@ -240,7 +267,7 @@
             });
             
             // Log the API endpoint being used
-            if (baseURL !== 'https://api.openai.com/v1') {
+            if (baseURL !== 'https://api.openai.com') {
               console.log(`Using OpenAI API endpoint: ${baseURL}`);
             }
           } catch (error) {
@@ -878,6 +905,37 @@
       window.toggleDarkMode = toggleDarkMode;
       window.initializeClients = initializeClients;
       window.updateLastSavedIndicator = updateLastSavedIndicator;
+      
+      // Function to migrate existing settings from /v1 URL to new format
+      function migrateSettingsFromV1() {
+        const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
+        if (settings.baseUrl) {
+          let updated = false;
+          
+          // Handle the exact match for api.openai.com/v1
+          if (settings.baseUrl === 'https://api.openai.com/v1') {
+            settings.baseUrl = 'https://api.openai.com';
+            updated = true;
+          }
+          
+          // Also handle other variations with trailing /v1
+          if (settings.baseUrl.endsWith('/v1')) {
+            settings.baseUrl = settings.baseUrl.slice(0, -3);
+            updated = true;
+          }
+          
+          // Handle trailing slashes
+          if (settings.baseUrl.endsWith('/')) {
+            settings.baseUrl = settings.baseUrl.slice(0, -1);
+            updated = true;
+          }
+          
+          if (updated) {
+            localStorage.setItem('dialogueSettings', JSON.stringify(settings));
+            console.log('Migrated settings from v1 URL format to new format:', settings.baseUrl);
+          }
+        }
+      }
     </script>
   </body>
 </html>

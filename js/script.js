@@ -85,10 +85,10 @@ function saveSettingsToLocalStorage() {
   if (!apiKeyInput || !baseUrlInput || !modelSelect) return;
   
   const apiKey = apiKeyInput.value.trim();
-  const baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
+  const baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com';
   const model = modelSelect.value;
   
-  const isCustomBaseUrl = baseUrl !== 'https://api.openai.com/v1';
+  const isCustomBaseUrl = baseUrl !== 'https://api.openai.com';
   
   const settings = {
     apiKey: apiKey,
