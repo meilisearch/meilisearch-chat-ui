@@ -3,6 +3,9 @@
  *
  * This module provides a wrapper around the OpenAI API with tool call interception
  * for specific functions related to Meilisearch integration.
+ * 
+ * Supports both streaming and non-streaming responses, with proper handling
+ * of tool calls in both modes.
  */
 
 // OpenAI API client configuration
@@ -28,6 +31,16 @@ class OpenAIClient {
    */
   async createChatCompletion(messages, tools = [], options = {}) {
     try {
+      // Validate inputs
+      if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('Chat messages are required and must be an array');
+      }
+      
+      // Check for valid API key
+      if (!this.apiKey || this.apiKey.trim() === '') {
+        throw new Error('OpenAI API key is required');
+      }
+      
       const response = await fetch(`${this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -47,7 +60,13 @@ class OpenAIClient {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`OpenAI API Error: ${errorData.error?.message || 'Unknown error'}`);
+        const errorMessage = errorData.error?.message || 'Unknown error';
+        const errorCode = errorData.error?.code || 'unknown_error';
+        const error = new Error(`OpenAI API Error: ${errorMessage}`);
+        error.code = errorCode;
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
       }
 
       if (options.stream) {
@@ -58,6 +77,27 @@ class OpenAIClient {
       }
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
+      
+      // Check if this is a network error
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        const networkError = new Error('Network error. Please check your internet connection.');
+        networkError.code = 'network_error';
+        throw networkError;
+      }
+      
+      // Intercept and handle common OpenAI API errors
+      if (error.status === 401) {
+        this._interceptToolCall('_meiliReportError', {
+          error_code: 'invalid_api_key',
+          message: 'Invalid API key. Please check your OpenAI API key in settings.'
+        }, 'error_' + Date.now());
+      } else if (error.status === 429) {
+        this._interceptToolCall('_meiliReportError', {
+          error_code: 'rate_limit_exceeded',
+          message: 'OpenAI API rate limit exceeded. Please try again later.'
+        }, 'error_' + Date.now());
+      }
+      
       throw error;
     }
   }
@@ -71,6 +111,8 @@ class OpenAIClient {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
+    let accumulatedToolCalls = {};
+    let lastError = null;
 
     try {
       while (true) {
@@ -87,20 +129,111 @@ class OpenAIClient {
 
           const message = line.replace(/^data: /, '');
           try {
+            // Handle [DONE] message
+            if (message.trim() === '[DONE]') {
+              continue;
+            }
+            
             const parsedMessage = JSON.parse(message);
+            
+            // Check for error in the stream
+            if (parsedMessage.error) {
+              lastError = new Error(`OpenAI Stream Error: ${parsedMessage.error.message}`);
+              lastError.code = parsedMessage.error.code || 'stream_error';
+              this._interceptToolCall('_meiliReportError', {
+                error_code: 'stream_error',
+                message: parsedMessage.error.message
+              }, 'error_' + Date.now());
+              continue;
+            }
+            
             yield parsedMessage;
 
-            // Process tool calls if present
+            // Process tool calls if present in the delta
             if (parsedMessage.choices?.[0]?.delta?.tool_calls) {
-              this._processToolCalls(parsedMessage.choices[0].delta.tool_calls);
+              const deltaToolCalls = parsedMessage.choices[0].delta.tool_calls;
+              
+              // Accumulate tool calls since they may come in multiple chunks
+              for (const deltaToolCall of deltaToolCalls) {
+                const toolCallId = deltaToolCall.id || deltaToolCall.index;
+                
+                if (!accumulatedToolCalls[toolCallId]) {
+                  accumulatedToolCalls[toolCallId] = {
+                    id: toolCallId,
+                    function: { name: '', arguments: '' },
+                    type: deltaToolCall.type || 'function'
+                  };
+                }
+                
+                // Update function name if present
+                if (deltaToolCall.function?.name) {
+                  accumulatedToolCalls[toolCallId].function.name = deltaToolCall.function.name;
+                }
+                
+                // Append to arguments if present
+                if (deltaToolCall.function?.arguments) {
+                  accumulatedToolCalls[toolCallId].function.arguments += deltaToolCall.function.arguments;
+                }
+                
+                // If we have both name and arguments, and the name is one of our intercepted tools,
+                // try to process the tool call
+                const completeTool = accumulatedToolCalls[toolCallId];
+                if (completeTool.function.name && 
+                    completeTool.function.arguments && 
+                    this.interceptedTools.includes(completeTool.function.name)) {
+                  try {
+                    // Check if arguments is valid JSON by parsing it
+                    const args = JSON.parse(completeTool.function.arguments);
+                    // Process the tool call
+                    this._processToolCalls([completeTool]);
+                    // Mark this tool call as processed to avoid duplicates
+                    accumulatedToolCalls[toolCallId].processed = true;
+                  } catch (e) {
+                    // Arguments are not complete yet or invalid JSON, continue accumulating
+                    console.debug(`Still accumulating arguments for ${completeTool.function.name}: ${e.message}`);
+                  }
+                }
+              }
             }
           } catch (error) {
             console.warn('Error parsing SSE message:', error);
+            lastError = error;
           }
         }
       }
+    } catch (error) {
+      console.error('Stream reading error:', error);
+      lastError = error;
+      
+      // Report the error through our tool call system
+      this._interceptToolCall('_meiliReportError', {
+        error_code: 'stream_error',
+        message: `Error reading stream: ${error.message}`
+      }, 'error_' + Date.now());
+      
+      throw error;
     } finally {
       reader.releaseLock();
+      
+      // Process any remaining complete tool calls that haven't been processed yet
+      for (const [id, toolCall] of Object.entries(accumulatedToolCalls)) {
+        if (!toolCall.processed && 
+            toolCall.function.name && 
+            toolCall.function.arguments && 
+            this.interceptedTools.includes(toolCall.function.name)) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            this._interceptToolCall(toolCall.function.name, args, id);
+          } catch (error) {
+            console.error(`Error processing accumulated tool call ${toolCall.function.name}:`, error);
+          }
+        }
+      }
+      
+      // If there was an error during streaming, throw it after cleanup
+      if (lastError) {
+        throw lastError;
+      }
     }
   }
 
@@ -119,6 +252,15 @@ class OpenAIClient {
           this._interceptToolCall(functionName, args, toolCall.id);
         } catch (error) {
           console.error(`Error processing tool call ${functionName}:`, error);
+          // Dispatch error event to notify the application
+          const errorEvent = new CustomEvent('openai-tool-error', {
+            detail: {
+              functionName,
+              error: error.message,
+              toolCallId: toolCall.id
+            }
+          });
+          document.dispatchEvent(errorEvent);
         }
       }
     }
@@ -129,21 +271,135 @@ class OpenAIClient {
    * @param {string} functionName - The name of the function to intercept
    * @param {Object} args - The arguments for the function
    * @param {string} toolCallId - The ID of the tool call
+   * @returns {Object} - A standardized response object
    */
   _interceptToolCall(functionName, args, toolCallId) {
     console.log(`Intercepted tool call: ${functionName}`, args);
 
-    // Custom tool call handling can be implemented here if needed
+    // Ensure we have a valid tool call ID
+    const safeToolCallId = toolCallId || `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Dispatch custom event for tool call
-    const event = new CustomEvent('openai-tool-call', {
-      detail: {
+    try {
+      // Validate tool call arguments based on function name
+      this._validateToolCallArgs(functionName, args);
+      
+      // Log timing for performance tracking
+      const timestamp = new Date().toISOString();
+      console.debug(`Tool call [${safeToolCallId}] started at ${timestamp}`);
+      
+      // Dispatch custom event for tool call
+      const event = new CustomEvent('openai-tool-call', {
+        detail: {
+          functionName,
+          args,
+          toolCallId: safeToolCallId,
+          timestamp
+        }
+      });
+      document.dispatchEvent(event);
+      
+      // Return a standardized response format for tool calls
+      return {
+        status: 'success',
         functionName,
-        args,
-        toolCallId
-      }
-    });
-    document.dispatchEvent(event);
+        toolCallId: safeToolCallId,
+        timestamp
+      };
+    } catch (error) {
+      console.error(`Error in tool call interception for ${functionName}:`, error);
+      
+      // Dispatch error event
+      const errorEvent = new CustomEvent('openai-tool-error', {
+        detail: {
+          functionName,
+          error: error.message,
+          toolCallId: safeToolCallId
+        }
+      });
+      document.dispatchEvent(errorEvent);
+      
+      return {
+        status: 'error',
+        functionName,
+        toolCallId: safeToolCallId,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Validates tool call arguments based on function name
+   * @param {string} functionName - The name of the function
+   * @param {Object} args - The arguments for the function
+   * @throws {Error} - If validation fails
+   */
+  _validateToolCallArgs(functionName, args) {
+    if (!args) {
+      throw new Error(`No arguments provided for ${functionName}`);
+    }
+    
+    switch (functionName) {
+      case '_meiliSearchProgress':
+        if (!args.function_name) {
+          throw new Error(`Missing required parameter 'function_name' for ${functionName}`);
+        }
+        if (!args.function_parameters) {
+          throw new Error(`Missing required parameter 'function_parameters' for ${functionName}`);
+        }
+        
+        // Try to parse function_parameters to ensure it's valid JSON
+        try {
+          JSON.parse(args.function_parameters);
+        } catch (e) {
+          console.warn(`Invalid JSON in function_parameters for ${functionName}: ${e.message}`);
+          // Don't throw here - we'll try to work with what we have
+        }
+        break;
+        
+      case '_meiliReportError':
+        if (!args.error_code) {
+          throw new Error(`Missing required parameter 'error_code' for ${functionName}`);
+        }
+        if (!args.message) {
+          throw new Error(`Missing required parameter 'message' for ${functionName}`);
+        }
+        break;
+        
+      case '_meiliAppendConversationMessage':
+        if (!args.role) {
+          throw new Error(`Missing required parameter 'role' for ${functionName}`);
+        }
+        
+        // Check for valid role
+        const validRoles = ['user', 'assistant', 'system', 'tool'];
+        if (!validRoles.includes(args.role)) {
+          console.warn(`Invalid role '${args.role}' for ${functionName}. Using 'system' instead.`);
+          args.role = 'system'; // Auto-correct to prevent errors
+        }
+        
+        // Ensure we have either content or tool_calls
+        if (!args.content && (!args.tool_calls || args.tool_calls.length === 0)) {
+          throw new Error(`Either 'content' or 'tool_calls' must be provided for ${functionName}`);
+        }
+        break;
+        
+      case '_meiliSearchSources':
+        if (!args.call_id) {
+          throw new Error(`Missing required parameter 'call_id' for ${functionName}`);
+        }
+        
+        // Check that documents is an object
+        if (!args.documents || typeof args.documents !== 'object') {
+          throw new Error(`Missing or invalid 'documents' parameter for ${functionName}`);
+        }
+        break;
+        
+      default:
+        // For unknown tools, just log a warning
+        console.warn(`Unknown tool function: ${functionName}`);
+    }
+    
+    return true; // Validation passed
   }
 
   // Custom tool handling methods can be added here as needed
@@ -153,6 +409,21 @@ class OpenAIClient {
 const openaiTools = {
   // Define the available tools for OpenAI API
   getDefaultTools() {
+    return this.getMeiliSearchTools();
+  },
+  
+  // Helper method to check if OpenAI API key is valid
+  validateApiKey(apiKey) {
+    if (!apiKey || typeof apiKey !== 'string') {
+      return false;
+    }
+    
+    // Basic pattern check for OpenAI API keys
+    return apiKey.trim().startsWith('sk-') && apiKey.trim().length > 20;
+  },
+  
+  // Get Meilisearch tools configuration
+  getMeiliSearchTools() {
     return [
       {
         type: "function",
@@ -286,6 +557,15 @@ const openaiTools = {
         }
       }
     ];
+  },
+  
+  // Process tool call responses for conversation history
+  processToolResponse(toolCall, result) {
+    return {
+      role: 'tool',
+      tool_call_id: toolCall.id,
+      content: JSON.stringify(result)
+    };
   }
 };
 
