@@ -100,11 +100,11 @@
         <div class="container-fluid p-4 flex-grow-1">
           <div class="chat-container">
             <div class="chat-messages" id="chatMessages">
-              <!-- Messages will be inserted here by JavaScript -->
-              <div class="message system">
-                Welcome to OpenAI Chat! How can I help you today?
-              </div>
-            </div>
+                    <!-- Messages will be inserted here by JavaScript -->
+                    <div class="message system">
+                      Welcome to OpenAI Chat! How can I help you today? I can intercept specific tool calls.
+                    </div>
+                  </div>
             <div class="chat-input">
               <form id="chatForm">
                 <div class="input-group">
@@ -281,8 +281,26 @@
 
       // Handle tool call events
     function handleToolCall(event) {
-      // Tool call handling can be implemented here if needed
-      console.log('Tool call received:', event.detail);
+      const { functionName, args } = event.detail;
+      
+      // Log the tool call
+      console.log(`Tool call received: ${functionName}`, args);
+      
+      // Handle specific tool calls with minimal implementation
+      switch (functionName) {
+        case '_meiliSearchProgress':
+          console.log(`Search progress: ${args.query} - ${args.status} (${args.progress || 0}%)`);
+          break;
+        case '_meiliSearchSources':
+          console.log(`Search sources: ${args.query}`);
+          break;
+        case '_meiliReportError':
+          console.error(`Error reported: ${args.message}`);
+          break;
+        case '_meiliAppendConversationMessage':
+          console.log(`Append message: ${args.role} - ${args.content.substring(0, 50)}...`);
+          break;
+      }
     }
 
       // Add message to the chat UI
