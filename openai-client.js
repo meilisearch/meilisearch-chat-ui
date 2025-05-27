@@ -283,6 +283,47 @@ class OpenAIClient {
       // Validate tool call arguments based on function name
       this._validateToolCallArgs(functionName, args);
       
+      // Process special cases like search parameters
+      if (functionName === '_meiliSearchProgress') {
+        // Extract and format search parameters for better tracking
+        try {
+          const searchParams = JSON.parse(args.function_parameters);
+          args._extracted = {
+            query: searchParams.q,
+            index_uid: searchParams.index_uid,
+            timestamp: new Date().toISOString()
+          };
+          console.log(`Search query extracted: "${searchParams.q}" in index "${searchParams.index_uid}"`);
+        } catch (e) {
+          console.warn('Failed to parse search parameters:', e);
+        }
+      } else if (functionName === '_meiliSearchInIndex') {
+        // Direct search call - generate a call_id and report progress
+        const callId = `search_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        console.log(`Direct search call: "${args.q}" in index "${args.index_uid}" (ID: ${callId})`);
+        
+        // Store the search parameters for tracking
+        this._storeSearchParameters(callId, args);
+        
+        // Report progress for this search
+        this._interceptToolCall('_meiliSearchProgress', {
+          call_id: callId,
+          function_name: '_meiliSearchInIndex',
+          function_parameters: JSON.stringify(args)
+        }, `progress_${callId}`);
+        
+        // In a real implementation, you would perform the search here
+        // and then call _meiliSearchSources with the results
+        
+        // For demo purposes, simulate a search with a timeout
+        setTimeout(() => {
+          this._interceptToolCall('_meiliSearchSources', {
+            call_id: callId,
+            documents: this._generateDemoSearchResults(args.q, args.index_uid)
+          }, `results_${callId}`);
+        }, 1500);
+      }
+      
       // Log timing for performance tracking
       const timestamp = new Date().toISOString();
       console.debug(`Tool call [${safeToolCallId}] started at ${timestamp}`);
@@ -349,7 +390,17 @@ class OpenAIClient {
         
         // Try to parse function_parameters to ensure it's valid JSON
         try {
-          JSON.parse(args.function_parameters);
+          const params = JSON.parse(args.function_parameters);
+          
+          // Special handling for search in index parameters
+          if (args.function_name === '_meiliSearchInIndex') {
+            if (!params.index_uid) {
+              console.warn(`Missing index_uid in _meiliSearchInIndex parameters`);
+            }
+            if (!params.q && !params.filter) {
+              console.warn(`Missing search query (q) or filter in _meiliSearchInIndex parameters`);
+            }
+          }
         } catch (e) {
           console.warn(`Invalid JSON in function_parameters for ${functionName}: ${e.message}`);
           // Don't throw here - we'll try to work with what we have
@@ -402,6 +453,38 @@ class OpenAIClient {
     return true; // Validation passed
   }
 
+  // Store search parameters for tracking
+  _storeSearchParameters(callId, params) {
+    if (!callId || !params) return;
+    
+    // Use the openaiTools tracking mechanism
+    openaiTools.trackSearchQuery(
+      callId,
+      params.q || '',
+      params.index_uid || '',
+      '_meiliSearchInIndex'
+    );
+  }
+  
+  // Generate demo search results for testing
+  _generateDemoSearchResults(query, indexUid) {
+    // This is just for demo purposes - in a real app, you would get actual results from Meilisearch
+    const demoResults = {};
+    const resultCount = Math.floor(Math.random() * 5) + 1; // 1-5 results
+    
+    for (let i = 1; i <= resultCount; i++) {
+      const id = `doc_${i}_${Date.now()}`;
+      demoResults[id] = {
+        title: `Result ${i} for "${query}"`,
+        description: `This is a sample search result for the query "${query}" in index "${indexUid}". This is just placeholder content for demonstration purposes.`,
+        url: `https://example.com/results/${encodeURIComponent(query)}/${i}`,
+        source: `Demo Index: ${indexUid}`
+      };
+    }
+    
+    return demoResults;
+  }
+  
   // Custom tool handling methods can be added here as needed
 }
 
@@ -409,7 +492,10 @@ class OpenAIClient {
 const openaiTools = {
   // Define the available tools for OpenAI API
   getDefaultTools() {
-    return this.getMeiliSearchTools();
+    return [
+      ...this.getMeiliSearchTools(),
+      ...this.getSearchTools()
+    ];
   },
   
   // Helper method to check if OpenAI API key is valid
@@ -420,6 +506,66 @@ const openaiTools = {
     
     // Basic pattern check for OpenAI API keys
     return apiKey.trim().startsWith('sk-') && apiKey.trim().length > 20;
+  },
+  
+  // Helper to extract search parameters from function parameters
+  extractSearchParams(functionParameters) {
+    if (!functionParameters) return null;
+    
+    try {
+      const params = JSON.parse(functionParameters);
+      return {
+        query: params.q || '',
+        indexUid: params.index_uid || '',
+        filter: params.filter || null,
+        limit: params.limit || 20,
+        offset: params.offset || 0
+      };
+    } catch (e) {
+      console.error('Failed to parse search parameters:', e);
+      return null;
+    }
+  },
+  
+  // Get search tools configuration
+  getSearchTools() {
+    return [
+      {
+        type: "function",
+        function: {
+          name: "_meiliSearchInIndex",
+          description: "Search documents in a Meilisearch index",
+          parameters: {
+            type: "object",
+            properties: {
+              index_uid: {
+                type: "string",
+                description: "The UID of the index to search in"
+              },
+              q: {
+                type: "string",
+                description: "The search query"
+              },
+              filter: {
+                type: ["string", "null"],
+                description: "Optional filter expression"
+              },
+              limit: {
+                type: ["integer", "null"],
+                description: "Maximum number of results to return (default: 20)"
+              },
+              offset: {
+                type: ["integer", "null"],
+                description: "Offset for pagination (default: 0)"
+              }
+            },
+            required: ["index_uid", "q"],
+            additionalProperties: false
+          },
+          strict: true
+        }
+      }
+    ];
   },
   
   // Get Meilisearch tools configuration
@@ -566,6 +712,33 @@ const openaiTools = {
       tool_call_id: toolCall.id,
       content: JSON.stringify(result)
     };
+  },
+  
+  // Track search queries for correlation between progress and results
+  searchQueries: {},
+  
+  // Add a search query to the tracking system
+  trackSearchQuery(callId, query, indexUid, functionName) {
+    if (!callId) return;
+    
+    this.searchQueries[callId] = {
+      query,
+      indexUid,
+      timestamp: new Date().toISOString(),
+      function_name: functionName
+    };
+    
+    console.log(`Tracking search query: "${query}" in index "${indexUid}" with call_id "${callId}"`);
+    
+    // Clean up old queries after some time to prevent memory leaks
+    setTimeout(() => {
+      delete this.searchQueries[callId];
+    }, 3600000); // Remove after 1 hour
+  },
+  
+  // Get a tracked search query
+  getSearchQuery(callId) {
+    return this.searchQueries[callId] || null;
   }
 };
 
