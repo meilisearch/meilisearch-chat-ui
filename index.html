@@ -159,8 +159,8 @@
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">OpenAI Chat with Meilisearch</a>
                 <button class="btn btn-outline-light" type="button" onclick="togglePanel()">
-                    <i class="bi bi-gear"></i> Settings
-                </button>
+                        <i class="bi bi-gear"></i> <span id="settingsIndicator">Settings</span>
+                    </button>
             </div>
         </nav>
 
@@ -200,6 +200,44 @@
               <div class="form-text">Your API key is stored locally and never sent to our servers.</div>
             </div>
             <div class="mb-3">
+              <label for="baseUrlInput" class="form-label">API Base URL</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                <input type="text" class="form-control" id="baseUrlInput" placeholder="https://api.openai.com/v1">
+                <button class="btn btn-outline-secondary" type="button" id="resetBaseUrlBtn" title="Reset to default">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+                <button class="btn btn-outline-primary" type="button" id="testEndpointBtn" title="Test connection">
+                  <i class="bi bi-lightning"></i>
+                </button>
+              </div>
+              <div class="form-text">Use a custom endpoint (e.g., for proxies or Azure OpenAI). <strong>Default:</strong> https://api.openai.com/v1</div>
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" id="azureOpenAICheck">
+                <label class="form-check-label" for="azureOpenAICheck">
+                  This is an Azure OpenAI endpoint
+                </label>
+              </div>
+            </div>
+            
+            <div id="azureOpenAIFormSection" class="mb-3 border rounded p-3 bg-light d-none">
+              <h6 class="mb-3">Azure OpenAI Configuration</h6>
+              <div class="mb-2">
+                <label for="azureResourceName" class="form-label">Resource Name</label>
+                <input type="text" class="form-control" id="azureResourceName" placeholder="your-resource-name">
+              </div>
+              <div class="mb-2">
+                <label for="azureDeploymentName" class="form-label">Deployment Name</label>
+                <input type="text" class="form-control" id="azureDeploymentName" placeholder="your-deployment-name">
+              </div>
+              <div class="mb-2">
+                <label for="azureApiVersion" class="form-label">API Version</label>
+                <input type="text" class="form-control" id="azureApiVersion" value="2023-05-15" placeholder="2023-05-15">
+              </div>
+              <button class="btn btn-secondary w-100 mt-2" id="applyAzureSettingsBtn">Apply Azure Settings</button>
+              <div class="form-text mt-2">This will format the correct Azure OpenAI endpoint URL.</div>
+            </div>
+            <div class="mb-3">
               <label for="modelSelect" class="form-label">Model</label>
               <select class="form-select" id="modelSelect">
                 <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -228,6 +266,7 @@
       const chatMessages = document.getElementById('chatMessages');
       const saveSettingsBtn = document.getElementById('saveSettingsBtn');
       const apiKeyInput = document.getElementById('apiKeyInput');
+      const baseUrlInput = document.getElementById('baseUrlInput');
       const modelSelect = document.getElementById('modelSelect');
 
       // Client instances
@@ -264,6 +303,51 @@
       // Expose directSearch to global scope for UI access
       window.directSearch = directSearch;
 
+      // Test the API endpoint
+      async function testApiEndpoint() {
+        const apiKey = apiKeyInput.value.trim();
+        const baseUrl = baseUrlInput.value.trim();
+        
+        if (!apiKey) {
+          appendMessage('system', 'Please enter an API key first.');
+          return;
+        }
+        
+        if (!baseUrl) {
+          appendMessage('system', 'Please enter a base URL.');
+          return;
+        }
+        
+        appendMessage('system', `Testing connection to: ${baseUrl}`);
+        
+        try {
+          // Create a temporary client just for testing
+          const testClient = new OpenAIClient(apiKey, {
+            baseURL: baseUrl,
+            model: modelSelect.value
+          });
+          
+          // Send a simple test message
+          const response = await testClient.createChatCompletion(
+            [{ role: 'user', content: 'Reply with just the text "Connection successful"' }],
+            [],
+            { 
+              stream: false,
+              max_tokens: 10
+            }
+          );
+          
+          if (response && response.choices && response.choices[0]) {
+            appendMessage('system', `✅ Connection successful! Endpoint is working.`);
+          } else {
+            appendMessage('system', `⚠️ Connection made but received unexpected response format.`);
+          }
+        } catch (error) {
+          appendMessage('system', `❌ Connection failed: ${error.message}`);
+          console.error('API test error:', error);
+        }
+      }
+      
       // Initialize the app
       function initApp() {
         loadSettings();
@@ -302,35 +386,99 @@
       function loadSettings() {
         const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
         apiKeyInput.value = settings.apiKey || '';
+        baseUrlInput.value = settings.baseUrl || 'https://api.openai.com/v1';
         modelSelect.value = settings.model || 'gpt-4-turbo';
+        
+        // Update UI to show if custom URL is being used
+        updateCustomUrlIndicator(settings.isCustomBaseUrl);
+      }
+      
+      // Update UI indicator for custom URL usage
+      function updateCustomUrlIndicator(isCustom) {
+        const indicator = document.getElementById('settingsIndicator');
+        if (isCustom) {
+          indicator.innerHTML = 'Settings <span class="badge bg-warning">Custom API</span>';
+        } else {
+          indicator.innerHTML = 'Settings';
+        }
       }
 
       // Save settings to localStorage
-      function saveSettings() {
-        const apiKey = apiKeyInput.value.trim();
+    function saveSettings() {
+      const apiKey = apiKeyInput.value.trim();
+      const baseUrl = baseUrlInput.value.trim();
         
-        // Validate API key format
-        if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
-          appendMessage('system', 'Invalid OpenAI API key format. API keys should start with "sk-" and be at least 20 characters long.');
-          return;
+      // Validate API key format
+      if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+        appendMessage('system', 'Invalid OpenAI API key format. API keys should start with "sk-" and be at least 20 characters long.');
+        return;
+      }
+        
+      // Validate base URL format
+      try {
+        if (!baseUrl) {
+          throw new Error('Base URL cannot be empty');
         }
         
-        const settings = {
-          apiKey: apiKey,
-          model: modelSelect.value
-        };
-        localStorage.setItem('dialogueSettings', JSON.stringify(settings));
-        initializeClients();
-        appendMessage('system', 'Settings saved successfully! You can now start chatting.');
+        // Simple validation for URL format
+        if (!baseUrl.match(/^https?:\/\/.+/i)) {
+          throw new Error('URL must start with http:// or https://');
+        }
+        
+        // Try to parse as URL to check validity
+        new URL(baseUrl);
+      } catch (error) {
+        appendMessage('system', `Invalid base URL: ${error.message}`);
+        return;
       }
+        
+      const isCustomBaseUrl = baseUrl !== 'https://api.openai.com/v1';
+      
+      // Show a confirmation if using a custom URL
+      if (isCustomBaseUrl) {
+        const confirmMessage = `You are using a custom API endpoint: ${baseUrl}. This should only be used if you're connecting to a proxy, Azure OpenAI, or another compatible service.`;
+        appendMessage('system', confirmMessage);
+      }
+        
+      const settings = {
+        apiKey: apiKey,
+        baseUrl: baseUrl,
+        model: modelSelect.value,
+        isCustomBaseUrl: isCustomBaseUrl
+      };
+      localStorage.setItem('dialogueSettings', JSON.stringify(settings));
+      initializeClients();
+      updateCustomUrlIndicator(isCustomBaseUrl);
+      appendMessage('system', 'Settings saved successfully! You can now start chatting.');
+    }
 
       // Initialize clients with current settings
       function initializeClients() {
         const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
         if (settings.apiKey) {
-          openaiClient = new OpenAIClient(settings.apiKey, {
-            model: settings.model || 'gpt-4-turbo'
-          });
+          try {
+            // Validate base URL format
+            const baseURL = settings.baseUrl || 'https://api.openai.com/v1';
+            const isValidURL = baseURL.match(/^https?:\/\/.+/i);
+            
+            if (!isValidURL) {
+              throw new Error(`Invalid base URL format: ${baseURL}`);
+            }
+            
+            openaiClient = new OpenAIClient(settings.apiKey, {
+              model: settings.model || 'gpt-4-turbo',
+              baseURL: baseURL
+            });
+            
+            // Log when using custom API endpoint
+            if (baseURL !== 'https://api.openai.com/v1') {
+              console.log(`Using custom OpenAI API endpoint: ${baseURL}`);
+              appendMessage('system', `Using custom API endpoint: ${baseURL}`);
+            }
+          } catch (error) {
+            console.error('Error initializing OpenAI client:', error);
+            appendMessage('system', `Error initializing client: ${error.message}`);
+          }
         }
       }
 
@@ -346,12 +494,60 @@
         document.getElementById('clearSettingsBtn').addEventListener('click', () => {
           localStorage.removeItem('dialogueSettings');
           apiKeyInput.value = '';
+          baseUrlInput.value = 'https://api.openai.com/v1';
           modelSelect.value = 'gpt-4-turbo';
+          updateCustomUrlIndicator(false);
+          document.getElementById('azureOpenAICheck').checked = false;
+          document.getElementById('azureOpenAIFormSection').classList.add('d-none');
           appendMessage('system', 'Settings have been cleared.');
+        });
+        
+        // Reset base URL button
+        document.getElementById('resetBaseUrlBtn').addEventListener('click', () => {
+          baseUrlInput.value = 'https://api.openai.com/v1';
+          appendMessage('system', 'Base URL reset to OpenAI default endpoint.');
+          
+          // If settings were previously saved with a custom URL, update the indicator
+          const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
+          if (settings.isCustomBaseUrl) {
+            appendMessage('system', 'Click "Save Settings" to apply the default endpoint.');
+          }
+        });
+        
+        // Azure OpenAI checkbox
+        document.getElementById('azureOpenAICheck').addEventListener('change', function() {
+          const azureSection = document.getElementById('azureOpenAIFormSection');
+          if (this.checked) {
+            azureSection.classList.remove('d-none');
+          } else {
+            azureSection.classList.add('d-none');
+          }
+        });
+        
+        // Apply Azure Settings button
+        document.getElementById('applyAzureSettingsBtn').addEventListener('click', function() {
+          const resourceName = document.getElementById('azureResourceName').value.trim();
+          const deploymentName = document.getElementById('azureDeploymentName').value.trim();
+          const apiVersion = document.getElementById('azureApiVersion').value.trim() || '2023-05-15';
+          
+          if (!resourceName || !deploymentName) {
+            appendMessage('system', 'Please provide both Resource Name and Deployment Name for Azure OpenAI.');
+            return;
+          }
+          
+          // Format the Azure OpenAI URL
+          const azureUrl = `https://${resourceName}.openai.azure.com/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
+          baseUrlInput.value = azureUrl;
+          
+          appendMessage('system', `Azure OpenAI endpoint configured: ${azureUrl}`);
+          document.getElementById('settingsIndicator').innerHTML = 'Settings <span class="badge bg-info">Azure</span>';
         });
         
         // Tool call interceptor events
         document.addEventListener('openai-tool-call', handleToolCall);
+          
+        // Test endpoint button
+        document.getElementById('testEndpointBtn').addEventListener('click', testApiEndpoint);
       }
 
       // Handle chat form submission

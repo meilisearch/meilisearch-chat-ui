@@ -13,12 +13,22 @@ class OpenAIClient {
   constructor(apiKey, options = {}) {
     this.apiKey = apiKey;
     this.baseURL = options.baseURL || 'https://api.openai.com/v1';
+    
+    // Ensure baseURL doesn't end with a trailing slash
+    if (this.baseURL.endsWith('/')) {
+      this.baseURL = this.baseURL.slice(0, -1);
+    }
+    
+    // Detect if this is an Azure OpenAI endpoint
+    this.isAzure = this.baseURL.includes('azure.com');
+    
     this.model = options.model || 'gpt-4-turbo';
     this.interceptedTools = [
       '_meiliSearchProgress',
       '_meiliReportError',
       '_meiliAppendConversationMessage',
-      '_meiliSearchSources'
+      '_meiliSearchSources',
+      '_meiliSearchInIndex'
     ];
   }
 
@@ -41,14 +51,30 @@ class OpenAIClient {
         throw new Error('OpenAI API key is required');
       }
       
-      const response = await fetch(`${this.baseURL}/chat/completions`, {
+      // Determine the appropriate endpoint and headers
+      let endpoint;
+      let headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (this.isAzure) {
+        // For Azure OpenAI, the endpoint is already complete in the baseURL
+        endpoint = this.baseURL;
+        // Azure uses a different authorization header
+        headers['api-key'] = this.apiKey;
+      } else {
+        // Standard OpenAI API
+        endpoint = this.baseURL.includes('/v1') ? 
+          `${this.baseURL}/chat/completions` : 
+          `${this.baseURL}/v1/chat/completions`;
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
+        headers,
         body: JSON.stringify({
-          model: options.model || this.model,
+          model: this.isAzure ? undefined : (options.model || this.model), // Azure doesn't need model parameter
           messages,
           tools,
           tool_choice: options.tool_choice || 'auto',
@@ -89,12 +115,23 @@ class OpenAIClient {
       if (error.status === 401) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'invalid_api_key',
-          message: 'Invalid API key. Please check your OpenAI API key in settings.'
+          message: `Invalid API key. Please check your ${this.isAzure ? 'Azure OpenAI' : 'OpenAI'} API key in settings.`
         }, 'error_' + Date.now());
       } else if (error.status === 429) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'rate_limit_exceeded',
-          message: 'OpenAI API rate limit exceeded. Please try again later.'
+          message: `${this.isAzure ? 'Azure OpenAI' : 'OpenAI'} API rate limit exceeded. Please try again later.`
+        }, 'error_' + Date.now());
+      } else if (error.status === 404) {
+        this._interceptToolCall('_meiliReportError', {
+          error_code: 'endpoint_not_found',
+          message: `API endpoint not found. Please check your base URL: ${this.baseURL}`
+        }, 'error_' + Date.now());
+      } else if (this.isAzure && error.status === 400) {
+        // Special handling for Azure-specific errors
+        this._interceptToolCall('_meiliReportError', {
+          error_code: 'azure_configuration_error',
+          message: `Azure OpenAI configuration error. Check your resource name, deployment name, and API version.`
         }, 'error_' + Date.now());
       }
       
@@ -506,6 +543,33 @@ const openaiTools = {
     
     // Basic pattern check for OpenAI API keys
     return apiKey.trim().startsWith('sk-') && apiKey.trim().length > 20;
+  },
+  
+  // Helper method to validate base URL
+  validateBaseUrl(url) {
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
+    
+    try {
+      new URL(url);
+      return url.startsWith('http://') || url.startsWith('https://');
+    } catch (e) {
+      return false;
+    }
+  },
+  
+  // Check if a URL is an Azure OpenAI endpoint
+  isAzureEndpoint(url) {
+    return url && url.includes('azure.com') && url.includes('openai');
+  },
+  
+  // Format an Azure OpenAI endpoint URL
+  formatAzureEndpoint(resourceName, deploymentName, apiVersion = '2023-05-15') {
+    if (!resourceName || !deploymentName) {
+      throw new Error('Resource name and deployment name are required for Azure OpenAI');
+    }
+    return `https://${resourceName}.openai.azure.com/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
   },
   
   // Helper to extract search parameters from function parameters
