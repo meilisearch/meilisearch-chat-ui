@@ -25,16 +25,12 @@ class OpenAIClient {
       console.warn('Removed /v1 from baseURL - it will be automatically added to the endpoint as needed');
     }
     
-    // Detect if this is an Azure OpenAI endpoint
-    this.isAzure = this.baseURL.includes('azure.com');
-    
     this.model = options.model || 'gpt-4-turbo';
     this.interceptedTools = [
       '_meiliSearchProgress',
       '_meiliReportError',
       '_meiliAppendConversationMessage',
-      '_meiliSearchSources',
-      '_meiliSearchInIndex'
+      '_meiliSearchSources'
     ];
   }
 
@@ -63,16 +59,9 @@ class OpenAIClient {
         'Content-Type': 'application/json'
       };
       
-      if (this.isAzure) {
-        // For Azure OpenAI, the endpoint is already complete in the baseURL
-        endpoint = this.baseURL;
-        // Azure uses a different authorization header
-        headers['api-key'] = this.apiKey;
-      } else {
-        // Standard OpenAI API - use /chat/completions directly
-        endpoint = `${this.baseURL}/chat/completions`;
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
+      // Standard OpenAI API - use /chat/completions directly
+      endpoint = `${this.baseURL}/chat/completions`;
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
       
       console.log(`Sending request to: ${endpoint}`);
       
@@ -80,7 +69,7 @@ class OpenAIClient {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: this.isAzure ? undefined : (options.model || this.model), // Azure doesn't need model parameter
+          model: options.model || this.model,
           messages,
           tools,
           tool_choice: options.tool_choice || 'auto',
@@ -121,24 +110,19 @@ class OpenAIClient {
       if (error.status === 401) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'invalid_api_key',
-          message: `Invalid API key. Please check your ${this.isAzure ? 'Azure OpenAI' : 'OpenAI'} API key in settings.`
+          message: `Invalid API key. Please check your OpenAI API key in settings.`
         }, 'error_' + Date.now());
       } else if (error.status === 429) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'rate_limit_exceeded',
-          message: `${this.isAzure ? 'Azure OpenAI' : 'OpenAI'} API rate limit exceeded. Please try again later.`
+          message: `OpenAI API rate limit exceeded. Please try again later.`
         }, 'error_' + Date.now());
       } else if (error.status === 404) {
         this._interceptToolCall('_meiliReportError', {
           error_code: 'endpoint_not_found',
           message: `API endpoint not found. Please check your base URL: ${this.baseURL} (make sure you're using the root API URL without /v1)`
         }, 'error_' + Date.now());
-      } else if (this.isAzure && error.status === 400) {
-        // Special handling for Azure-specific errors
-        this._interceptToolCall('_meiliReportError', {
-          error_code: 'azure_configuration_error',
-          message: `Azure OpenAI configuration error. Check your resource name, deployment name, and API version.`
-        }, 'error_' + Date.now());
+
       }
       
       throw error;
@@ -340,31 +324,7 @@ class OpenAIClient {
         } catch (e) {
           console.warn('Failed to parse search parameters:', e);
         }
-      } else if (functionName === '_meiliSearchInIndex') {
-        // Direct search call - generate a call_id and report progress
-        const callId = `search_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        console.log(`Direct search call: "${args.q}" in index "${args.index_uid}" (ID: ${callId})`);
-        
-        // Store the search parameters for tracking
-        this._storeSearchParameters(callId, args);
-        
-        // Report progress for this search
-        this._interceptToolCall('_meiliSearchProgress', {
-          call_id: callId,
-          function_name: '_meiliSearchInIndex',
-          function_parameters: JSON.stringify(args)
-        }, `progress_${callId}`);
-        
-        // In a real implementation, you would perform the search here
-        // and then call _meiliSearchSources with the results
-        
-        // For demo purposes, simulate a search with a timeout
-        setTimeout(() => {
-          this._interceptToolCall('_meiliSearchSources', {
-            call_id: callId,
-            documents: this._generateDemoSearchResults(args.q, args.index_uid)
-          }, `results_${callId}`);
-        }, 1500);
+
       }
       
       // Log timing for performance tracking
@@ -435,15 +395,7 @@ class OpenAIClient {
         try {
           const params = JSON.parse(args.function_parameters);
           
-          // Special handling for search in index parameters
-          if (args.function_name === '_meiliSearchInIndex') {
-            if (!params.index_uid) {
-              console.warn(`Missing index_uid in _meiliSearchInIndex parameters`);
-            }
-            if (!params.q && !params.filter) {
-              console.warn(`Missing search query (q) or filter in _meiliSearchInIndex parameters`);
-            }
-          }
+
         } catch (e) {
           console.warn(`Invalid JSON in function_parameters for ${functionName}: ${e.message}`);
           // Don't throw here - we'll try to work with what we have
@@ -496,37 +448,7 @@ class OpenAIClient {
     return true; // Validation passed
   }
 
-  // Store search parameters for tracking
-  _storeSearchParameters(callId, params) {
-    if (!callId || !params) return;
-    
-    // Use the openaiTools tracking mechanism
-    openaiTools.trackSearchQuery(
-      callId,
-      params.q || '',
-      params.index_uid || '',
-      '_meiliSearchInIndex'
-    );
-  }
-  
-  // Generate demo search results for testing
-  _generateDemoSearchResults(query, indexUid) {
-    // This is just for demo purposes - in a real app, you would get actual results from Meilisearch
-    const demoResults = {};
-    const resultCount = Math.floor(Math.random() * 5) + 1; // 1-5 results
-    
-    for (let i = 1; i <= resultCount; i++) {
-      const id = `doc_${i}_${Date.now()}`;
-      demoResults[id] = {
-        title: `Result ${i} for "${query}"`,
-        description: `This is a sample search result for the query "${query}" in index "${indexUid}". This is just placeholder content for demonstration purposes.`,
-        url: `https://example.com/results/${encodeURIComponent(query)}/${i}`,
-        source: `Demo Index: ${indexUid}`
-      };
-    }
-    
-    return demoResults;
-  }
+
   
   // Custom tool handling methods can be added here as needed
 }
@@ -535,10 +457,7 @@ class OpenAIClient {
 const openaiTools = {
   // Define the available tools for OpenAI API
   getDefaultTools() {
-    return [
-      ...this.getMeiliSearchTools(),
-      ...this.getSearchTools()
-    ];
+    return this.getMeiliSearchTools();
   },
   
   // Helper method to check if OpenAI API key is valid
@@ -572,18 +491,7 @@ const openaiTools = {
     }
   },
   
-  // Check if a URL is an Azure OpenAI endpoint
-  isAzureEndpoint(url) {
-    return url && url.includes('azure.com') && url.includes('openai');
-  },
-  
-  // Format an Azure OpenAI endpoint URL
-  formatAzureEndpoint(resourceName, deploymentName, apiVersion = '2023-05-15') {
-    if (!resourceName || !deploymentName) {
-      throw new Error('Resource name and deployment name are required for Azure OpenAI');
-    }
-    return `https://${resourceName}.openai.azure.com/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
-  },
+
   
   // Clean a base URL (remove trailing slashes and /v1)
   cleanBaseUrl(url) {
@@ -623,46 +531,7 @@ const openaiTools = {
     }
   },
   
-  // Get search tools configuration
-  getSearchTools() {
-    return [
-      {
-        type: "function",
-        function: {
-          name: "_meiliSearchInIndex",
-          description: "Search documents in a Meilisearch index",
-          parameters: {
-            type: "object",
-            properties: {
-              index_uid: {
-                type: "string",
-                description: "The UID of the index to search in"
-              },
-              q: {
-                type: "string",
-                description: "The search query"
-              },
-              filter: {
-                type: ["string", "null"],
-                description: "Optional filter expression"
-              },
-              limit: {
-                type: ["integer", "null"],
-                description: "Maximum number of results to return (default: 20)"
-              },
-              offset: {
-                type: ["integer", "null"],
-                description: "Offset for pagination (default: 0)"
-              }
-            },
-            required: ["index_uid", "q"],
-            additionalProperties: false
-          },
-          strict: true
-        }
-      }
-    ];
-  },
+
   
   // Get Meilisearch tools configuration
   getMeiliSearchTools() {

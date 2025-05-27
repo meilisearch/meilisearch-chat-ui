@@ -67,7 +67,7 @@
                 <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
                 <input type="text" class="form-control" id="baseUrlInput" placeholder="https://api.openai.com">
               </div>
-              <div class="form-text">Use a custom endpoint (e.g., for proxies or Azure OpenAI). <strong>Default:</strong> https://api.openai.com (no /v1)</div>
+              <div class="form-text">Use a custom endpoint if needed. <strong>Default:</strong> https://api.openai.com (no /v1)</div>
             </div>
             
 
@@ -108,33 +108,6 @@
       
       // Store search queries by call_id for correlation between progress and results
       const searchQueries = {};
-      
-      // Direct search function for testing
-      function directSearch(query, indexUid = 'default') {
-        if (!openaiClient) {
-          appendMessage('system', 'Please set your OpenAI API key in the settings panel before searching.');
-          return;
-        }
-        
-        // Create a tool call directly
-        const toolCall = {
-          id: `direct_search_${Date.now()}`,
-          function: {
-            name: '_meiliSearchInIndex',
-            arguments: JSON.stringify({
-              index_uid: indexUid,
-              q: query,
-              limit: 10
-            })
-          }
-        };
-        
-        // Call the function directly through the openaiClient
-        openaiClient._interceptToolCall(toolCall.function.name, JSON.parse(toolCall.function.arguments), toolCall.id);
-      }
-      
-      // Expose directSearch to global scope for UI access
-      window.directSearch = directSearch;
 
 
       
@@ -169,16 +142,7 @@
           }
         }, 900000); // Run every 15 minutes
         
-        // Add a test search button to the UI
-        const navbarRight = document.querySelector('.navbar .container-fluid');
-        const searchButton = document.createElement('button');
-        searchButton.className = 'btn btn-outline-light me-2 cursor-pointer';
-        searchButton.innerHTML = '<i class="bi bi-search"></i> Test Search';
-        searchButton.onclick = () => {
-          const query = prompt('Enter a search query:');
-          if (query) directSearch(query);
-        };
-        navbarRight.appendChild(searchButton);
+        // No search button needed
       }
 
       // Load settings from localStorage
@@ -444,9 +408,6 @@
           case '_meiliAppendConversationMessage':
             handleMeiliAppendConversationMessage(args, toolCallId);
             break;
-          case '_meiliSearchInIndex':
-            handleMeiliSearchInIndex(args, toolCallId);
-            break;
           default:
             console.warn(`Unknown tool call function: ${functionName}`);
             appendMessage('system', `Received unknown tool call: ${functionName}`);
@@ -482,16 +443,14 @@
         params = JSON.parse(function_parameters);
         
         // Extract query information from the search parameters
-        // Note: function_name will be something like '_meiliSearchInIndex' 
-        // and the actual search parameters will be in the function_parameters JSON
+        // Note: This handles the case where _meiliSearchProgress is called with a function_name
+        // that might be a search function (e.g., from a tool call interception)
         if (params) {
           query = params.q || '';
           indexUid = params.index_uid || '';
           
-          // If this is not a direct search (common case), log it for debugging
-          if (function_name !== '_meiliSearchInIndex') {
-            console.log(`Function ${function_name} with params:`, params);
-          }
+          // Log it for debugging
+          console.log(`Function ${function_name} with params:`, params);
           
           // Store the search query information for later use with this call_id
           if (call_id) {
@@ -544,57 +503,7 @@
       }
     }
     
-    // Handle direct search in index
-    function handleMeiliSearchInIndex(args, toolCallId) {
-      // Extract search parameters
-      const { q, index_uid, filter, limit, offset } = args;
-      
-      // Create a call_id for this search
-      const call_id = `direct_${toolCallId || Date.now()}`;
-      
-      // Store search information
-      searchQueries[call_id] = {
-        query: q,
-        indexUid: index_uid,
-        filter,
-        limit,
-        offset,
-        timestamp: new Date().toISOString(),
-        function_name: '_meiliSearchInIndex'
-      };
-      
-      // Display search progress
-      handleMeiliSearchProgress({
-        call_id,
-        function_name: '_meiliSearchInIndex',
-        function_parameters: JSON.stringify(args)
-      }, toolCallId);
-      
-      console.log(`Direct search initiated: "${q}" in index "${index_uid}" (ID: ${call_id})`);
-      
-      // In a real implementation, this would call Meilisearch directly
-      // For demo purposes, simulate a search with mock results after a delay
-      setTimeout(() => {
-        // Generate mock results
-        const mockDocuments = {};
-        const resultCount = Math.floor(Math.random() * 5) + 1;
-        
-        for (let i = 1; i <= resultCount; i++) {
-          mockDocuments[`result_${i}`] = {
-            title: `Result ${i} for "${q}"`,
-            description: `This is a sample result for the search query "${q}" in index "${index_uid}". It contains the search terms to demonstrate highlighting.`,
-            url: `https://example.com/results/${encodeURIComponent(q)}/${i}`,
-            source: index_uid
-          };
-        }
-        
-        // Display search results
-        handleMeiliSearchSources({
-          call_id,
-          documents: mockDocuments
-        }, toolCallId);
-      }, 1000);
-    }
+    // Direct search function removed
     
     // Handle Meilisearch source results
     function handleMeiliSearchSources(args, toolCallId) {
@@ -767,47 +676,7 @@
           .replace(/\*([^*]+)\*/g, '<em>$1</em>');
       }
       
-      // If this is a search-related message and try to extract query information
-      if (formattedContent.toLowerCase().includes('search') && 
-          validRole === 'assistant') {
-        // Try to extract search information to track queries - handle different function name patterns
-        const searchMatch = formattedContent.match(/(?:_meiliSearchInIndex|search|query|find)[^{]*(\{[^}]+\})/i);
-        if (searchMatch && searchMatch[1]) {
-          try {
-            const searchParams = JSON.parse(searchMatch[1].replace(/'/g, '"'));
-            // Look for either q or query parameter
-            const searchQuery = searchParams.q || searchParams.query || '';
-            const searchIndex = searchParams.index_uid || searchParams.index || '';
-            
-            if (searchQuery) {
-              // Generate a predictable call_id if we can extract the query
-              // Note: This is a best-effort attempt and may not always match the actual call_id
-              const predictedCallId = `search_${Date.now()}`;
-              searchQueries[predictedCallId] = {
-                query: searchQuery,
-                indexUid: searchIndex,
-                timestamp: new Date().toISOString(),
-                function_name: '_meiliSearchInIndex',
-                fromMessage: true
-              };
-              console.log(`Extracted search query from message: "${searchQuery}" (ID: ${predictedCallId})`);
-              
-              // Offer to perform the search directly
-              const searchPromptHtml = `
-                <div class="alert alert-info">
-                  <p>I detected a search query: <strong>"${searchQuery}"</strong></p>
-                  <button class="btn btn-sm btn-primary" onclick="directSearch('${searchQuery.replace(/'/g, "\\'")}', '${searchIndex.replace(/'/g, "\\'")}')">
-                    <i class="bi bi-search"></i> Run this search
-                  </button>
-                </div>
-              `;
-              setTimeout(() => appendMessage('system', searchPromptHtml), 500);
-            }
-          } catch (e) {
-            console.warn('Failed to extract search parameters from message:', e);
-          }
-        }
-      }
+      // Search query extraction removed
       
       // Add the message to the UI
       appendMessage(validRole, formattedContent);
@@ -901,7 +770,6 @@
       
       // Export functions to the global scope
       window.togglePanel = togglePanel;
-      window.directSearch = directSearch;
       window.toggleDarkMode = toggleDarkMode;
       window.initializeClients = initializeClients;
       window.updateLastSavedIndicator = updateLastSavedIndicator;
