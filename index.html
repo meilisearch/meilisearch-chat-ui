@@ -1,1273 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magik RAG</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github-dark.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+    <title>Dialogue with Meilisearch</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-color: #202123;
-            color: #ccc;
+        :root {
+        --bd-violet-rgb: 113, 44, 249;
         }
 
-        .header {
-            padding: 1rem 0;
-            color: #ccc;
-        }
+      .container-wrapper {
+        display: flex;
+        min-height: 100vh;
+      }
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .right-panel {
+        width: 0;
+        overflow: hidden;
+        background-color: #f8f9fa;
+        border-left: 1px solid #dee2e6;
+        transition: width 0.3s ease-in-out;
+      }
+      .right-panel.show {
+        width: 300px;
+      }
+      .panel-content {
+        width: 300px;
+        padding: 1rem;
+      }
 
-        .chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 100px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .message-row {
-            padding: 1rem;
-            width: 100%;
-            margin-bottom: 0.5rem;
-            color: #ccc;
-        }
-
-        .user-message .message-content {
-            max-width: 80%;
-            padding: 1rem;
-            border-radius: 1.5rem;
-            background-color: #444654;
-            margin-left: auto;
-            position: relative;
-        }
-
-        .assistant-message .message-content {
-            width: 100%;
-            padding: 1rem;
-            position: relative;
-        }
-
-        .input-container {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 1rem;
-            background-color: #202123;
-            z-index: 100;
-        }
-
-        .centered-input-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%;
-            max-width: 600px;
-            z-index: 100;
-        }
-
-        .input-box {
-            resize: none;
-            padding-left: 40px;
-            min-height: 80px;
-            border-radius: 20px !important;
-            color: #ccc !important;
-            background-color: #444654 !important;
-            border: 2px solid #666 !important;
-        }
-
-        .input-box:focus {
-            box-shadow: none !important;
-            border-color: #999 !important;
-        }
-
-        .input-box::placeholder {
-            color: #9aa3b0 !important;
-        }
-
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #ccc;
-            border-radius: 50%;
-            margin: 0 2px;
-            opacity: 0.6;
-            animation: typing 1.5s infinite ease-in-out;
-        }
-
-        .typing-dot:nth-child(1) {
-            animation-delay: 0s;
-        }
-
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typing {
-            0%, 100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-5px);
-            }
-        }
-
-        pre {
-            background-color: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
-            padding: 1rem;
-            overflow-x: auto;
-            margin: 1rem 0;
-            color: #ccc;
-        }
-
-        code {
-            background-color: rgba(0, 0, 0, 0.2);
-            padding: 2px 4px;
-            border-radius: 3px;
-            color: #ccc;
-        }
-
-        .message-content table {
-            border-collapse: collapse;
-            margin: 10px 0;
-            color: #ccc;
-            width: 100%;
-        }
-
-        .message-content th,
-        .message-content td {
-            border: 1px solid #444;
-            padding: 8px;
-        }
-
-        .message-content th {
-            background-color: #333;
-            text-align: left;
-        }
-
-        .message-content tr:nth-child(even) {
-            background-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .message-content blockquote {
-            border-left: 3px solid #555;
-            padding-left: 10px;
-            color: #aaa;
-            margin: 10px 0;
-        }
-
-        .message-content ul,
-        .message-content ol {
-            padding-left: 20px;
-        }
-
-        .message-content a {
-            color: #3b82f6;
-            text-decoration: none;
-        }
-
-        .message-content a:hover {
-            text-decoration: underline;
-        }
-
-        .message-content img {
-            max-width: 100%;
-            border-radius: 4px;
-        }
-
-        .message-content h1,
-        .message-content h2,
-        .message-content h3,
-        .message-content h4 {
-            margin-top: 16px;
-            margin-bottom: 10px;
-            color: #ccc;
-        }
-
-        .settings-icon {
-            position: absolute;
-            bottom: 17px;
-            left: 15px;
-            font-size: 1rem;
-            cursor: pointer;
-            color: #9aa3b0;
-            z-index: 1000;
-        }
-
-        .settings-icon:hover {
-            color: #ccc;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Search tool call animation styles */
-        .search-indicator-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            padding: 10px 14px;
-            background-color: #343541;
-            border-radius: 6px;
-            animation: fadeIn 0.4s ease-in-out;
-            border-left: 3px solid #777;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .search-indicator-container::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, #999, transparent);
-            animation: loading 1.5s infinite;
-        }
-
-        .search-pulse {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: #777;
-            margin-right: 12px;
-            animation: pulse 1.5s infinite ease-in-out;
-            box-shadow: 0 0 0 rgba(119, 119, 119, 0.5);
-            position: relative;
-        }
-
-        .search-pulse::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: 50%;
-            border: 3px solid #777;
-            animation: ripple 1.5s infinite ease-out;
-            opacity: 0;
-        }
-
-        .search-text {
-            color: #bbb;
-            font-weight: 400;
-            font-size: 0.95em;
-        }
-
-        .search-params {
-            margin-top: 3px;
-            font-size: 0.8em;
-            color: #777;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .tool-results {
-            padding: 10px;
-            background-color: #343541;
-            border-radius: 6px;
-            border-left: 3px solid #777;
-            margin-bottom: 10px;
-        }
-
-        .tool-results h4 {
-            margin-top: 0;
-            margin-bottom: 0;
-            color: #bbb;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            font-size: 0.95em;
-        }
-
-        .tool-results h4::before {
-            content: '';
-            margin-right: 8px;
-            width: 20px;
-            height: 20px;
-            background-color: #777;
-            border-radius: 50%;
-        }
-
-        .tool-results-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-            margin-top: 0;
-        }
-
-        .tool-results-content.expanded {
-            max-height: 500px;
-            margin-top: 12px;
-            overflow-y: auto;
-        }
-
-        .tool-results h4::after {
-            content: '›';
-            margin-left: auto;
-            font-size: 0.9em;
-            transition: transform 0.3s ease;
-            transform: rotate(90deg);
-        }
-
-        .tool-results h4.collapsed::after {
-            transform: rotate(0deg);
-        }
-
-        .movie-item {
-            margin-bottom: 6px;
-            padding: 10px;
-            background-color: #2d2d38;
-            border-radius: 4px;
-            transition: background-color 0.2s ease;
-            color: #bbb;
-            font-size: 0.9em;
-        }
-
-        .movie-item:hover {
-            background-color: #32323e;
-        }
-
-        .movie-title {
-            font-weight: 500;
-            color: #bbb;
-            margin-bottom: 4px;
-        }
-
-        .tool-message {
-            animation: fadeIn 0.5s ease-in-out;
-            margin-bottom: 12px;
-        }
-
-
-
-        @keyframes pulse {
-            0% {
-                transform: scale(0.9);
-                opacity: 0.7;
-            }
-            50% {
-                transform: scale(1.1);
-                opacity: 1;
-            }
-            100% {
-                transform: scale(0.9);
-                opacity: 0.7;
-            }
-        }
-
-        @keyframes ripple {
-            0% {
-                transform: scale(1);
-                opacity: 0;
-            }
-            40% {
-                opacity: 0.5;
-            }
-            100% {
-                transform: scale(2.2);
-                opacity: 0;
-            }
-        }
-
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(10px); }
-            70% { opacity: 0.7; transform: translateY(-2px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes loading {
-            0% { left: -100%; }
-            50% { left: 100%; }
-            100% { left: 100%; }
-        }
+      .bd-navbar {
+          padding: .75rem 0;
+          /* background-color: transparent; */
+          background-image: linear-gradient(rgba(var(--bd-violet-rgb), 1), rgba(var(--bd-violet-rgb), .95));
+          box-shadow: 0 .5rem 1rem #00000026, inset 0 -1px #ffffff26;
+      }
     </style>
-</head>
-<body>
-    <div class="container-fluid p-0">
-        <header class="text-center header">
-            <h3 class="mb-0">Magik RAG</h3>
-        </header>
+  </head>
 
-        <div class="chat-container" id="chat-container"></div>
-
-        <div class="centered-input-container" id="centered-input">
-            <div class="container">
-                <div class="row justify-content-center">
-                    <div class="col-12">
-                        <form id="chat-form">
-                            <div class="input-group">
-                                <div class="settings-icon" id="settings-button">
-                                    <i class="bi bi-gear"></i>
-                                </div>
-                                <textarea
-                                    class="form-control input-box"
-                                    id="user-input"
-                                    placeholder="Ask me anything"
-                                    rows="4"
-                                    autofocus
-                                ></textarea>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+  <body>
+    <div class="container-wrapper">
+      <div class="main-content">
+        <nav class="navbar bd-navbar" data-bs-theme="dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">Dialogue</a>
+                <button class="btn btn-outline-light" type="button" onclick="togglePanel()">
+                    Toggle Panel
+                </button>
             </div>
-        </div>
+        </nav>
 
-        <div class="input-container hidden" id="bottom-input">
-            <div class="container">
-                <div class="row justify-content-center">
-                    <div class="col-12 col-md-8 col-lg-6">
-                        <form id="bottom-chat-form">
-                            <div class="input-group">
-                                <div class="settings-icon" id="bottom-settings-button">
-                                    <i class="bi bi-gear"></i>
-                                </div>
-                                <textarea
-                                    class="form-control input-box"
-                                    id="bottom-user-input"
-                                    placeholder="Ask me anything"
-                                    rows="3"
-                                    autofocus
-                                ></textarea>
-                            </div>
-                        </form>
-                    </div>
+        <div class="container-fluid p-4 flex-grow-1">
+          <h1>Main Content Area</h1>
+          <p>This is the main content of your application. Click the "Toggle Panel" button in the navigation to show/hide the right panel.</p>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5>Sample Card 1</h5>
                 </div>
+                <div class="card-body">
+                  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                </div>
+              </div>
             </div>
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5>Sample Card 2</h5>
+                </div>
+                <div class="card-body">
+                  <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header">
+                  <h5>Full Width Card</h5>
+                </div>
+                <div class="card-body">
+                  <p>This card demonstrates how the content gets pushed to the left when the panel opens. The entire layout adjusts to accommodate the 400px panel.</p>
+                  <p>Notice how this content becomes narrower when the panel is visible, creating a true push effect rather than an overlay.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+      <div class="right-panel" id="rightPanel">
+        <div class="panel-content">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Right Panel</h4>
+            <button type="button" class="btn-close" aria-label="Close" onclick="togglePanel()"></button>
+          </div>
+          <hr>
+          <div class="mb-3">
+            <h6>Navigation</h6>
+            <ul class="list-unstyled">
+              <li><a href="#" class="text-decoration-none">Dashboard</a></li>
+              <li><a href="#" class="text-decoration-none">Settings</a></li>
+              <li><a href="#" class="text-decoration-none">Profile</a></li>
+              <li><a href="#" class="text-decoration-none">Help</a></li>
+            </ul>
+          </div>
+          <hr>
+          <div class="mb-3">
+            <h6>Quick Actions</h6>
+            <div class="d-grid gap-2">
+              <button class="btn btn-primary btn-sm">New Item</button>
+              <button class="btn btn-secondary btn-sm">Export Data</button>
+              <button class="btn btn-success btn-sm">Save Changes</button>
+            </div>
+          </div>
+          <hr>
+          <div>
+            <h6>Information</h6>
+            <p class="small text-muted">This right panel pushes the main content to the left by taking up exactly 400px of space in the layout flow.</p>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Helper function for handling collapsible elements
-            window.toggleCollapsible = function(header) {
-                header.classList.toggle('collapsed');
-                const content = header.nextElementSibling;
-                content.classList.toggle('expanded');
-            };
-            // Configuration variables
-            let meilisearchUrl = localStorage.getItem('meilisearchUrl');
-            let apiKey = localStorage.getItem('meilisearchApiKey');
-            let modelName = localStorage.getItem('modelName') || 'gpt-4o';
-
-            // Debug logging enabled for console only
-            let toolCalls = {}; // Map tool_call_id to their search indicator elements
-            let searchIndicators = []; // Array to track multiple search indicators
-
-            // Debug logging function
-            function logDebug(label, data) {
-                console.log(`[DEBUG] ${label}:`, data);
-            }
-
-            // Conversation state
-            let hasStartedConversation = false;
-
-            // If not found in localStorage, prompt the user
-            if (!meilisearchUrl || !apiKey) {
-                promptForCredentials();
-            }
-
-            function promptForCredentials() {
-                meilisearchUrl = prompt("Please enter the Meilisearch URL", meilisearchUrl || "");
-                if (!meilisearchUrl) {
-                    alert("A Meilisearch URL is required to continue.");
-                    promptForCredentials();
-                    return;
-                }
-
-                apiKey = prompt("Please enter your Meilisearch API Key", "");
-                if (!apiKey) {
-                    alert("An API Key is required to continue.");
-                    promptForCredentials();
-                    return;
-                }
-
-                modelName = prompt("Please enter the model name to use", modelName || "gpt-4o");
-                if (!modelName) {
-                    modelName = "gpt-4o"; // Default model if none provided
-                }
-
-                localStorage.setItem('meilisearchUrl', meilisearchUrl);
-                localStorage.setItem('meilisearchApiKey', apiKey);
-                localStorage.setItem('modelName', modelName);
-            }
-
-            // DOM Elements
-            const chatContainer = document.getElementById('chat-container');
-            const centeredInput = document.getElementById('centered-input');
-            const bottomInput = document.getElementById('bottom-input');
-
-            const chatForm = document.getElementById('chat-form');
-            const userInput = document.getElementById('user-input');
-
-            const bottomChatForm = document.getElementById('bottom-chat-form');
-            const bottomUserInput = document.getElementById('bottom-user-input');
-
-            const settingsButton = document.getElementById('settings-button');
-            const bottomSettingsButton = document.getElementById('bottom-settings-button');
-
-            // Event Listeners
-            chatForm.addEventListener('submit', handleSubmit);
-            bottomChatForm.addEventListener('submit', handleBottomSubmit);
-
-            userInput.addEventListener('input', function() {
-                adjustTextareaHeight(userInput);
-            });
-
-            bottomUserInput.addEventListener('input', function() {
-                adjustTextareaHeight(bottomUserInput);
-            });
-
-            userInput.addEventListener('keydown', function(e) {
-                handleKeyDown(e);
-            });
-
-            bottomUserInput.addEventListener('keydown', function(e) {
-                handleKeyDown(e);
-            });
-
-            settingsButton.addEventListener('click', promptForCredentials);
-            bottomSettingsButton.addEventListener('click', promptForCredentials);
-
-            // Conversation history
-            let conversationHistory = [];
-
-            // Auto-resize textarea
-            function adjustTextareaHeight(textarea) {
-                textarea.style.height = 'auto';
-                textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
-            }
-
-            // Handle Enter key to submit, Shift+Enter for new line
-            function handleKeyDown(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (e.target.value.trim() !== '') {
-                        const form = e.target.form;
-                        form.dispatchEvent(new Event('submit'));
-                    }
-                }
-            }
-
-            // Switch from centered to bottom input
-            function switchToBottomInput() {
-                if (!hasStartedConversation) {
-                    // First transfer the content
-                    bottomUserInput.value = userInput.value;
-
-                    // Hide centered input and show bottom input
-                    centeredInput.classList.add('hidden');
-                    bottomInput.classList.remove('hidden');
-
-                    // Focus the bottom input
-                    bottomUserInput.focus();
-                    adjustTextareaHeight(bottomUserInput);
-
-                    hasStartedConversation = true;
-                }
-            }
-
-            // Add a message to the chat
-            // Function to check if user is scrolled to bottom
-            function isScrolledToBottom() {
-                const tolerance = 50; // pixels of tolerance
-                return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - tolerance);
-            }
-
-            function addMessage(role, content) {
-                // If this is the first message, switch to bottom input
-                if (!hasStartedConversation) {
-                    switchToBottomInput();
-                }
-
-                // Check if user was at the bottom before adding content
-                const wasAtBottom = isScrolledToBottom();
-
-                const messageRow = document.createElement('div');
-                messageRow.className = `message-row ${role === 'user' ? 'user-message' : 'assistant-message'}`;
-
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message-content';
-
-                // Use marked.js to render markdown
-                // Configure marked options
-                marked.setOptions({
-                    highlight: function(code, lang) {
-                        if (lang && hljs.getLanguage(lang)) {
-                            return hljs.highlight(code, { language: lang }).value;
-                        }
-                        return hljs.highlightAuto(code).value;
-                    },
-                    breaks: true,
-                    gfm: true
-                });
-
-                // Render markdown
-                messageDiv.innerHTML = marked.parse(content);
-
-                // Apply syntax highlighting to any code blocks
-                messageDiv.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
-
-                messageRow.appendChild(messageDiv);
-                chatContainer.appendChild(messageRow);
-
-                // Only scroll to bottom if user was already at the bottom
-                if (wasAtBottom) {
-                    window.scrollTo(0, document.body.scrollHeight);
-                }
-
-                // Add to conversation history
-                conversationHistory.push({
-                    role: role,
-                    content: content
-                });
-            }
-
-            // Show loading indicator
-            function showLoadingIndicator() {
-                const messageRow = document.createElement('div');
-                messageRow.className = 'message-row assistant-message';
-                messageRow.id = 'loading-indicator';
-
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message-content';
-
-                const typingIndicator = document.createElement('div');
-                typingIndicator.className = 'd-flex align-items-center';
-
-                for (let i = 0; i < 3; i++) {
-                    const dot = document.createElement('div');
-                    dot.className = 'typing-dot';
-                    typingIndicator.appendChild(dot);
-                }
-
-                messageDiv.appendChild(typingIndicator);
-
-                messageRow.appendChild(messageDiv);
-                chatContainer.appendChild(messageRow);
-                window.scrollTo(0, document.body.scrollHeight);
-            }
-
-            // Hide loading indicator
-            function hideLoadingIndicator() {
-                const loadingIndicator = document.getElementById('loading-indicator');
-                if (loadingIndicator) {
-                    loadingIndicator.remove();
-                }
-            }
-
-            // Handle centered form submission
-            async function handleSubmit(e) {
-                e.preventDefault();
-
-                const userMessage = userInput.value.trim();
-                if (userMessage === '') return;
-
-                // We'll switch to bottom input and show message there
-                switchToBottomInput();
-
-                // Process the message immediately
-                handleMessage(userMessage);
-            }
-
-            // Handle bottom form submission
-            async function handleBottomSubmit(e) {
-                e.preventDefault();
-
-                const userMessage = bottomUserInput.value.trim();
-                if (userMessage === '') return;
-
-                handleMessage(userMessage);
-            }
-
-            // Process user message and get response
-            async function handleMessage(userMessage) {
-                // Display user message
-                addMessage('user', userMessage);
-
-                // Clear input
-                userInput.value = '';
-                bottomUserInput.value = '';
-                adjustTextareaHeight(userInput);
-                adjustTextareaHeight(bottomUserInput);
-
-                // Show loading indicator
-                showLoadingIndicator();
-
-                // Variables to track state
-                let assistantMessage = '';
-                let currentAssistantMessageElement = null;
-                let toolEventActive = false;
-                let localSearchIndicators = []; // Local array to track multiple search indicators
-                let localToolCalls = {}; // Local map of tool_call_id to search indicator elements
-                let searchIndicatorRow = null;
-
-                // Create a message row for the assistant response
-                const messageRow = document.createElement('div');
-                messageRow.className = 'message-row assistant-message';
-
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message-content';
-                messageRow.appendChild(messageDiv);
-
-                try {
-                    // Prepare the request body with only essential fields
-                    const requestBody = {
-                        model: modelName,
-                        messages: conversationHistory,
-                        max_tokens: 1000,
-                        stream: true // Enable streaming
-                    };
-
-                    // Make the API call to the /chat/completions endpoint with streaming
-                    const response = await fetch(`${meilisearchUrl}/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${apiKey}`
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || 'Unknown error occurred');
-                    }
-
-                    // Get the response as a stream
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder('utf-8');
-
-                    // Hide loading indicator once we start receiving the stream
-                    hideLoadingIndicator();
-
-                    // Add the message row to the chat container before streaming
-                    chatContainer.appendChild(messageRow);
-
-                    // Process the stream
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        // Decode the chunk
-                        const chunk = decoder.decode(value, { stream: true });
-
-                        // Log raw chunk in debug mode
-                        logDebug("Raw chunk", chunk);
-
-                        // Process each line in the chunk
-                        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-                        for (const line of lines) {
-                            // Skip the "data: " prefix and empty lines
-                            if (line.startsWith('data: ')) {
-                                const data = line.substring(6);
-
-                                // Log raw data line
-                                logDebug("Stream data line", data);
-
-                                // Check if it's the [DONE] message
-                                if (data === '[DONE]') continue;
-
-                                // Log raw data to console
-                                logDebug('Raw data', data);
-
-                                try {
-                                    const parsedData = JSON.parse(data);
-
-                                    // Log parsed data to console only
-
-                                    // Debug: log all events
-                                    logDebug("Event type", parsedData.object || "delta");
-                                    logDebug("Parsed data", parsedData);
-
-                                    // Check if this is a Mistral or similar initialization chunk
-                                    if (parsedData.choices &&
-                                        parsedData.choices[0] &&
-                                        parsedData.choices[0].delta &&
-                                        ((parsedData.choices[0].delta.role === "assistant" &&
-                                          parsedData.choices[0].delta.content === "") ||
-                                         // Also check for empty delta with null fields
-                                         (parsedData.choices[0].delta.content === "" &&
-                                          parsedData.choices[0].delta.function_call === null &&
-                                          parsedData.choices[0].delta.tool_calls === null))) {
-                                        // This is an initialization message, nothing to process
-                                        continue;
-                                    }
-
-                                    // Handle global error event
-                                    if (parsedData.object === "chat.completion.error") {
-                                        // Create error message
-                                        const errorRow = document.createElement('div');
-                                        errorRow.className = 'message-row assistant-message';
-                                        
-                                        const errorDiv = document.createElement('div');
-                                        errorDiv.className = 'message-content';
-                                        
-                                        // Get error message
-                                        let errorContent = parsedData.tool || 'Unknown error occurred';
-                                        errorDiv.innerHTML = marked.parse(`**Error:** ${errorContent}`);
-                                        
-                                        errorRow.appendChild(errorDiv);
-                                        chatContainer.appendChild(errorRow);
-                                        
-                                        // Only scroll if user is already at the bottom
-                                        if (isScrolledToBottom()) {
-                                            window.scrollTo(0, document.body.scrollHeight);
-                                        }
-                                        
-                                        // Update conversation history
-                                        conversationHistory.push({
-                                            role: 'assistant',
-                                            content: `Error: ${errorContent}`
-                                        });
-                                    }
-                                    // Handle tool-specific error
-                                    else if (parsedData.object === "chat.completion.tool.error") {
-                                        logDebug('Processing tool error', parsedData);
-                                        
-                                        // Find the corresponding search indicator for this tool_call_id
-                                        const toolCallId = parsedData.tool?.tool_call_id || 'default';
-                                        const correspondingIndicator = toolCalls[toolCallId] ||
-                                                                       (searchIndicators.length > 0 ?
-                                                                        searchIndicators[searchIndicators.length - 1] :
-                                                                        null);
-                                        
-                                        // Create or transform message row
-                                        let errorMessageRow, errorMessageDiv;
-                                        
-                                        if (correspondingIndicator && correspondingIndicator.parentNode) {
-                                            // Transform the search indicator into error container
-                                            errorMessageRow = correspondingIndicator;
-                                            errorMessageRow.className = 'message-row tool-message';
-                                            
-                                            // Clear the existing content
-                                            errorMessageRow.innerHTML = '';
-                                            
-                                            // Create new message div
-                                            errorMessageDiv = document.createElement('div');
-                                            errorMessageDiv.className = 'message-content';
-                                            errorMessageRow.appendChild(errorMessageDiv);
-                                            
-                                            // Remove this indicator from our tracking
-                                            delete toolCalls[toolCallId];
-                                            searchIndicators = searchIndicators.filter(indicator => indicator !== correspondingIndicator);
-                                        } else {
-                                            // Create a new row if we don't have a search indicator
-                                            errorMessageRow = document.createElement('div');
-                                            errorMessageRow.className = 'message-row tool-message';
-                                            
-                                            errorMessageDiv = document.createElement('div');
-                                            errorMessageDiv.className = 'message-content';
-                                            errorMessageRow.appendChild(errorMessageDiv);
-                                            
-                                            // Add to chat container
-                                            chatContainer.appendChild(errorMessageRow);
-                                        }
-                                        
-                                        // Format the error content
-                                        const errorContent = parsedData.tool?.content || 'Tool error occurred';
-                                        errorMessageDiv.innerHTML = marked.parse(`**Tool Error:** ${errorContent}`);
-                                        
-                                        // Only scroll if user is already at the bottom
-                                        if (isScrolledToBottom()) {
-                                            window.scrollTo(0, document.body.scrollHeight);
-                                        }
-                                    }
-                                    // Handle tool call event
-                                    else if (parsedData.object === "chat.completion.tool.call" ||
-                                       (parsedData.choices && parsedData.choices[0] &&
-                                        parsedData.choices[0].delta &&
-                                        parsedData.choices[0].delta.tool_calls)) {
-
-                                        // Extract tool call information from different possible formats
-                                        let toolCallData = null;
-                                        let toolCallId = null;
-
-                                        if (parsedData.object === "chat.completion.tool.call") {
-                                            toolCallData = parsedData.tool;
-                                            toolCallId = parsedData.tool_call_id;
-                                        } else if (parsedData.choices &&
-                                                  parsedData.choices[0] &&
-                                                  parsedData.choices[0].delta &&
-                                                  parsedData.choices[0].delta.tool_calls) {
-                                            const toolCall = parsedData.choices[0].delta.tool_calls[0];
-                                            toolCallData = {
-                                                function: toolCall.function || {}
-                                            };
-                                            toolCallId = toolCall.id;
-                                        }
-
-                                        // Only proceed if we have valid tool call data
-                                        if (!toolCallData) continue;
-
-                                        logDebug('Processing tool call', { toolCallData, toolCallId });
-                                        // Create the search indicator element
-                                        const searchIndicatorRow = document.createElement('div');
-                                        searchIndicatorRow.className = 'message-row';
-                                        searchIndicatorRow.dataset.toolCallId = toolCallId || 'default'; // Store the tool_call_id
-
-                                        const searchIndicatorContainer = document.createElement('div');
-                                        searchIndicatorContainer.className = 'search-indicator-container';
-
-                                        const searchPulse = document.createElement('div');
-                                        searchPulse.className = 'search-pulse';
-
-                                        const searchInfo = document.createElement('div');
-                                        searchInfo.className = 'search-info';
-
-                                        // Get function name and arguments
-                                        const functionName = toolCallData.function.name || 'unknown';
-                                        const functionArgs = toolCallData.function.arguments ?
-                                            (typeof toolCallData.function.arguments === 'string' ?
-                                                JSON.parse(toolCallData.function.arguments) :
-                                                toolCallData.function.arguments) :
-                                            {};
-
-                                        // Create search text and params
-                                        const searchText = document.createElement('div');
-                                        searchText.className = 'search-text';
-
-                                        // Try to extract the most relevant info from args
-                                        let displayText = '';
-                                        try {
-                                            if (functionArgs.q) {
-                                                displayText = `"${functionArgs.q}"`;
-                                            } else if (functionArgs.query) {
-                                                displayText = `"${functionArgs.query}"`;
-                                            } else if (Object.keys(functionArgs).length > 0) {
-                                                // Just display the first argument for simplicity
-                                                const firstKey = Object.keys(functionArgs)[0];
-                                                const value = functionArgs[firstKey];
-                                                if (typeof value === 'string') {
-                                                    displayText = `${firstKey}: "${value}"`;
-                                                } else {
-                                                    displayText = `${firstKey}: ${JSON.stringify(value).substring(0, 50)}`;
-                                                }
-                                            }
-                                        } catch (e) {
-                                            displayText = '';
-                                            console.error('Error formatting function args:', e);
-                                        }
-
-                                        searchText.textContent = `Running ${functionName}${displayText ? ' with ' + displayText : ''}`;
-
-                                        const searchParams = document.createElement('div');
-                                        searchParams.className = 'search-params';
-                                        searchParams.textContent = `Tool ID: ${toolCallId || 'default'}`;
-
-                                        // Assemble the indicator
-                                        searchInfo.appendChild(searchText);
-                                        searchInfo.appendChild(searchParams);
-                                        searchIndicatorContainer.appendChild(searchPulse);
-                                        searchIndicatorContainer.appendChild(searchInfo);
-                                        searchIndicatorRow.appendChild(searchIndicatorContainer);
-
-                                        // Insert search indicator before assistant message
-                                        if (messageRow.parentNode) {
-                                            chatContainer.insertBefore(searchIndicatorRow, messageRow);
-                                        } else {
-                                            chatContainer.appendChild(searchIndicatorRow);
-                                        }
-
-                                        // Store query information in the indicator for later retrieval
-                                        let queryInfo = '';
-                                        if (functionArgs.q) {
-                                            queryInfo = functionArgs.q;
-                                        } else if (functionArgs.query) {
-                                            queryInfo = functionArgs.query;
-                                        } else if (Object.keys(functionArgs).length > 0) {
-                                            // Just get the first argument
-                                            const firstKey = Object.keys(functionArgs)[0];
-                                            if (typeof functionArgs[firstKey] === 'string') {
-                                                queryInfo = functionArgs[firstKey];
-                                            }
-                                        }
-                                        searchIndicatorRow.dataset.queryInfo = queryInfo;
-
-                                        // Store this search indicator
-                                        searchIndicators.push(searchIndicatorRow);
-                                        toolCalls[toolCallId || 'default'] = searchIndicatorRow;
-
-                                        // Only scroll if user is already at the bottom
-                                        if (isScrolledToBottom()) {
-                                            window.scrollTo(0, document.body.scrollHeight);
-                                        }
-                                    }
-                                    // Handle tool output
-                                    else if (parsedData.object === "chat.completion.tool.output" ||
-                                             (parsedData.choices &&
-                                              parsedData.choices[0] &&
-                                              parsedData.choices[0].delta &&
-                                              parsedData.choices[0].delta.tool_call_id)) {
-
-                                        logDebug('Processing tool output', parsedData);
-                                        // Don't create a new row if we have a search indicator, transform it instead
-                                        let toolMessageRow, toolMessageDiv;
-
-                                        // Find the corresponding search indicator for this tool_call_id
-                                        // Fallback: if no tool_call_id is provided, use the most recent indicator
-                                        const toolCallId = parsedData.tool_call_id ||
-                                                           (parsedData.choices && parsedData.choices[0] &&
-                                                            parsedData.choices[0].delta &&
-                                                            parsedData.choices[0].delta.tool_call_id) ||
-                                                           'default';
-
-                                        const correspondingIndicator = toolCalls[toolCallId] ||
-                                                                      (searchIndicators.length > 0 ?
-                                                                       searchIndicators[searchIndicators.length - 1] :
-                                                                       (searchIndicatorRow ? searchIndicatorRow : null));
-
-                                        logDebug("Looking for indicator with ID:", toolCallId, "Found:", !!correspondingIndicator);
-
-                                        if (correspondingIndicator && correspondingIndicator.parentNode) {
-                                            // Transform the search indicator into results container
-                                            toolMessageRow = correspondingIndicator;
-                                            toolMessageRow.className = 'message-row tool-message';
-
-                                            // Clear the existing content
-                                            toolMessageRow.innerHTML = '';
-
-                                            // Create new message div
-                                            toolMessageDiv = document.createElement('div');
-                                            toolMessageDiv.className = 'message-content';
-                                            toolMessageRow.appendChild(toolMessageDiv);
-
-                                            // Remove this indicator from our tracking
-                                            delete toolCalls[toolCallId];
-                                            searchIndicators = searchIndicators.filter(indicator => indicator !== correspondingIndicator);
-                                        } else {
-                                            // Create a new row if we don't have a search indicator
-                                            toolMessageRow = document.createElement('div');
-                                            toolMessageRow.className = 'message-row tool-message';
-
-                                            toolMessageDiv = document.createElement('div');
-                                            toolMessageDiv.className = 'message-content';
-                                            toolMessageRow.appendChild(toolMessageDiv);
-
-                                            // Add to chat container
-                                            chatContainer.appendChild(toolMessageRow);
-                                        }
-
-                                        // Format the tool content
-                                        let toolContent = '';
-                                        if (parsedData.object === "chat.completion.tool.output") {
-                                            toolContent = parsedData.tool?.content || '';
-                                        } else if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta) {
-                                            toolContent = parsedData.choices[0].delta.content || '';
-                                            if (parsedData.choices[0].delta.function_call && parsedData.choices[0].delta.function_call.arguments) {
-                                                toolContent = parsedData.choices[0].delta.function_call.arguments;
-                                            }
-                                        }
-                                        logDebug('Tool content', toolContent);
-
-                                        // Create a container for results with collapsible content
-                                        const toolResults = document.createElement('div');
-                                        toolResults.className = 'tool-results';
-
-                                        // Create the header
-                                        const toolHeader = document.createElement('h4');
-                                        toolHeader.className = 'collapsed';
-
-                                        // Get the original search query if available from the indicator
-                                        let queryText = '';
-                                        if (correspondingIndicator && correspondingIndicator.dataset && correspondingIndicator.dataset.queryInfo) {
-                                            queryText = correspondingIndicator.dataset.queryInfo;
-                                        }
-
-                                        toolHeader.textContent = queryText ? `Search results: "${queryText}"` : 'Search results';
-
-                                        toolResults.appendChild(toolHeader);
-
-                                        // Create the content container (collapsed by default)
-                                        const toolResultsContent = document.createElement('div');
-                                        toolResultsContent.className = 'tool-results-content';
-
-                                        // Split by newlines and format as a list
-                                        const movieResults = toolContent.split('\n').filter(item => item.trim() !== '');
-
-                                        // Check if content is long enough to process
-                                        if (movieResults.length > 0) {
-                                            for (const movie of movieResults) {
-                                                if (movie.startsWith('A movie called')) {
-                                                const titlePart = movie.split('about')[0].replace('A movie called', '').trim();
-                                                const descriptionPart = movie.split('about')[1]?.trim() || '';
-
-                                                const movieItem = document.createElement('div');
-                                                movieItem.className = 'movie-item';
-
-                                                const movieTitle = document.createElement('div');
-                                                movieTitle.className = 'movie-title';
-                                                movieTitle.textContent = `${titlePart}`;
-
-                                                const movieDesc = document.createElement('div');
-                                                movieDesc.textContent = descriptionPart;
-
-                                                movieItem.appendChild(movieTitle);
-                                                movieItem.appendChild(movieDesc);
-                                                toolResultsContent.appendChild(movieItem);
-                                            } else {
-                                                const movieItem = document.createElement('div');
-                                                movieItem.className = 'movie-item';
-                                                movieItem.textContent = movie;
-                                                toolResultsContent.appendChild(movieItem);
-                                            }
-                                        }
-                                        } else {
-                                            // If we don't have movie results in the format we expect,
-                                            // just display the raw content
-                                            const contentItem = document.createElement('div');
-                                            contentItem.className = 'movie-item';
-                                            contentItem.textContent = toolContent;
-                                            toolResultsContent.appendChild(contentItem);
-                                        }
-
-                                        // Add the content to the results container
-                                        toolResults.appendChild(toolResultsContent);
-
-                                        // Add click handler to toggle expansion
-                                        toolHeader.addEventListener('click', function() {
-                                            this.classList.toggle('collapsed');
-                                            toolResultsContent.classList.toggle('expanded');
-                                        });
-
-                                        // Add the tool results to the message
-                                        toolMessageDiv.appendChild(toolResults);
-
-                                        // Only scroll if user is already at the bottom
-                                        if (isScrolledToBottom()) {
-                                            window.scrollTo(0, document.body.scrollHeight);
-                                        }
-                                    }
-                                    // Handle regular message delta
-                                    else if (parsedData.choices && parsedData.choices.length > 0) {
-                                        // Support OpenAI, Mistral, and other API formats
-                                        const content = parsedData.choices[0].delta?.content;
-
-                                        // Process even if content is empty string (but not null/undefined)
-                                        // This ensures we don't miss any deliberate empty strings
-                                        if (content !== undefined && content !== null) {
-                                            // Skip if this appears to be just an initialization message
-                                            if (content === "" &&
-                                                parsedData.choices[0].delta.role === "assistant" &&
-                                                parsedData.object === "chat.completion.chunk") {
-                                                continue;
-                                            }
-                                            
-                                            // Skip if this appears to be a function call without content
-                                            if (content === "" && 
-                                                (parsedData.choices[0].delta.function_call || 
-                                                 parsedData.choices[0].delta.tool_calls)) {
-                                                continue;
-                                            }
-                                            assistantMessage += content;
-
-                                            // Use marked.js to render markdown
-                                            marked.setOptions({
-                                                highlight: function(code, lang) {
-                                                    if (lang && hljs.getLanguage(lang)) {
-                                                        return hljs.highlight(code, { language: lang }).value;
-                                                    }
-                                                    return hljs.highlightAuto(code).value;
-                                                },
-                                                breaks: true,
-                                                gfm: true
-                                            });
-
-                                            // Render markdown
-                                            messageDiv.innerHTML = marked.parse(assistantMessage);
-
-                                            // Apply syntax highlighting to any code blocks
-                                            messageDiv.querySelectorAll('pre code').forEach((block) => {
-                                                hljs.highlightElement(block);
-                                            });
-
-                                            // Only scroll if user is already at the bottom
-                                            if (isScrolledToBottom()) {
-                                                window.scrollTo(0, document.body.scrollHeight);
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error('Error parsing JSON from stream:', e);
-                                    logDebug('JSON parse error', { error: e.message, data });
-
-                                    // Log parse error to console
-                                    logDebug('Parse Error', { error: e.message, data });
-                                }
-                            }
-                        }
-                    }
-
-                    // Clean up any remaining search indicators
-                    for (const indicator of localSearchIndicators) {
-                        if (indicator && indicator.parentNode) {
-                            indicator.parentNode.removeChild(indicator);
-                        }
-                    }
-                    localSearchIndicators = [];
-                    localToolCalls = {};
-
-                    // Save the complete message to conversation history
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: assistantMessage
-                    });
-
-                } catch (error) {
-                    console.error('Error:', error);
-
-                    // Hide loading indicator
-                    hideLoadingIndicator();
-
-                    // Remove the streaming message row if it exists
-                    if (messageRow.parentNode) {
-                        messageRow.parentNode.removeChild(messageRow);
-                    }
-
-                    // Clean up any remaining search indicators
-                    for (const indicator of localSearchIndicators) {
-                        if (indicator && indicator.parentNode) {
-                            indicator.parentNode.removeChild(indicator);
-                        }
-                    }
-                    localSearchIndicators = [];
-                    localToolCalls = {};
-
-                    // Display error message
-                    addMessage('assistant', `Error: ${error.message || 'An error occurred while processing your request.'}`);
-                }
-
-                // Focus the appropriate input box
-                if (hasStartedConversation) {
-                    bottomUserInput.focus();
-                } else {
-                    userInput.focus();
-                }
-            }
-
-            // Initialize - focus the input field
-            userInput.focus();
-        });
+      function togglePanel() {
+          const rightPanel = document.getElementById('rightPanel');
+          rightPanel.classList.toggle('show');
+      }
     </script>
-</body>
+  </body>
 </html>
