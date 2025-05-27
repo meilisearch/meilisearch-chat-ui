@@ -207,25 +207,37 @@ body {
   gap: 0.5rem;
 }
 
-/* Azure OpenAI settings section */
-#azureOpenAIFormSection {
-  border-left: 3px solid #0078d4 !important;
-  transition: all 0.3s ease-in-out;
-  background-color: rgba(0, 120, 212, 0.05);
+/* Settings styling */
+.panel-content .form-control:focus {
+  border-color: #6c757d;
+  box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.25);
 }
 
-#azureOpenAIFormSection h6 {
-  color: #0078d4;
-  font-weight: 600;
+.panel-content .form-control.saved {
+  animation: saved-highlight 1s ease-in-out;
 }
 
-#azureOpenAIFormSection .form-control {
-  border-color: rgba(0, 120, 212, 0.2);
+@keyframes saved-highlight {
+  0% { box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.5); }
+  100% { box-shadow: none; }
 }
 
-#azureOpenAIFormSection .form-control:focus {
-  border-color: #0078d4;
-  box-shadow: 0 0 0 0.25rem rgba(0, 120, 212, 0.25);
+.save-indicator {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #28a745;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  z-index: 1050;
+}
+
+.save-indicator.show {
+  opacity: 1;
 }
 
 /* Loading indicators */
@@ -304,21 +316,25 @@ code {
   cursor: pointer;
 }
 
-.btn-azure {
-  background-color: #0078d4;
+/* Custom badges */
+.custom-badge {
+  background-color: #6c757d;
   color: white;
-  border-color: #0062ad;
 }
 
-.btn-azure:hover {
-  background-color: #0062ad;
+.settings-saved-badge {
+  background-color: #28a745;
   color: white;
-  border-color: #004d8a;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.35rem;
+  margin-left: 0.5rem;
+  animation: fade-out 2s forwards;
+  animation-delay: 1s;
 }
 
-.azure-badge {
-  background-color: #0078d4;
-  color: white;
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
 }
 
 mark {

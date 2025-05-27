@@ -20,29 +20,95 @@ document.addEventListener('DOMContentLoaded', function() {
     return new bootstrap.Popover(popoverTriggerEl);
   });
 
-  // Setup form validation for settings
-  setupFormValidation();
+  // Setup autosaving for settings
+  setupAutoSave();
+  
+  // Display last saved time if available
+  displayLastSavedTime();
 });
 
 /**
- * Sets up enhanced form validation
+ * Sets up autosaving for settings
  */
-function setupFormValidation() {
-  // API Key validation
+function setupAutoSave() {
+  // API Key autosave
   const apiKeyInput = document.getElementById('apiKeyInput');
   if (apiKeyInput) {
     apiKeyInput.addEventListener('input', function() {
       validateApiKey(this);
     });
+    apiKeyInput.addEventListener('blur', function() {
+      saveSettingsToLocalStorage();
+      showSavedIndicator(this);
+    });
   }
 
-  // Base URL validation
+  // Base URL autosave
   const baseUrlInput = document.getElementById('baseUrlInput');
   if (baseUrlInput) {
     baseUrlInput.addEventListener('input', function() {
       validateBaseUrl(this);
     });
+    baseUrlInput.addEventListener('blur', function() {
+      saveSettingsToLocalStorage();
+      showSavedIndicator(this);
+    });
   }
+  
+  // Model selection autosave
+  const modelSelect = document.getElementById('modelSelect');
+  if (modelSelect) {
+    modelSelect.addEventListener('change', function() {
+      saveSettingsToLocalStorage();
+      showSavedIndicator(this);
+    });
+  }
+
+  // Create save indicator element if it doesn't exist
+  if (!document.getElementById('saveIndicator')) {
+    const saveIndicator = document.createElement('div');
+    saveIndicator.id = 'saveIndicator';
+    saveIndicator.className = 'save-indicator';
+    saveIndicator.textContent = 'Settings saved';
+    document.body.appendChild(saveIndicator);
+  }
+}
+
+/**
+ * Automatically save settings to localStorage
+ */
+function saveSettingsToLocalStorage() {
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const baseUrlInput = document.getElementById('baseUrlInput');
+  const modelSelect = document.getElementById('modelSelect');
+  
+  if (!apiKeyInput || !baseUrlInput || !modelSelect) return;
+  
+  const apiKey = apiKeyInput.value.trim();
+  const baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
+  const model = modelSelect.value;
+  
+  const isCustomBaseUrl = baseUrl !== 'https://api.openai.com/v1';
+  
+  const settings = {
+    apiKey: apiKey,
+    baseUrl: baseUrl,
+    model: model,
+    isCustomBaseUrl: isCustomBaseUrl,
+    lastSaved: new Date().toISOString()
+  };
+  
+  localStorage.setItem('dialogueSettings', JSON.stringify(settings));
+  
+  // Update UI indicator for custom URL
+  updateCustomUrlIndicator(isCustomBaseUrl);
+  
+  // Reinitialize clients with new settings
+  if (window.initializeClients) {
+    window.initializeClients();
+  }
+  
+  console.log('Settings saved at', new Date().toLocaleTimeString());
 }
 
 /**
@@ -65,6 +131,21 @@ function validateApiKey(input) {
   }
   
   return isValid;
+}
+
+/**
+ * Updates the UI indicator for custom URL usage
+ * @param {boolean} isCustom - Whether a custom URL is being used
+ */
+function updateCustomUrlIndicator(isCustom) {
+  const indicator = document.getElementById('settingsIndicator');
+  if (indicator) {
+    if (isCustom) {
+      indicator.innerHTML = 'Settings <span class="badge custom-badge">Custom API</span>';
+    } else {
+      indicator.innerHTML = 'Settings';
+    }
+  }
 }
 
 /**
@@ -223,3 +304,44 @@ function checkDarkMode() {
 
 // Initialize dark mode check
 checkDarkMode();
+
+/**
+ * Show a visual indicator that settings have been saved
+ * @param {HTMLElement} element - The input element that triggered the save
+ */
+function showSavedIndicator(element) {
+  // Add a brief highlight to the element
+  element.classList.add('saved');
+  setTimeout(() => {
+    element.classList.remove('saved');
+  }, 1000);
+  
+  // Show floating save indicator
+  const saveIndicator = document.getElementById('saveIndicator');
+  if (saveIndicator) {
+    saveIndicator.classList.add('show');
+    setTimeout(() => {
+      saveIndicator.classList.remove('show');
+    }, 2000);
+  }
+}
+
+/**
+ * Display the last time settings were saved
+ */
+function displayLastSavedTime() {
+  const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
+  if (settings.lastSaved) {
+    const lastSaved = new Date(settings.lastSaved);
+    const timeString = lastSaved.toLocaleTimeString();
+    
+    // Create a small indicator in the settings panel
+    const panel = document.querySelector('.panel-content');
+    if (panel) {
+      const savedInfo = document.createElement('div');
+      savedInfo.className = 'text-muted small mt-2 text-end';
+      savedInfo.innerHTML = `Last saved: ${timeString}`;
+      panel.appendChild(savedInfo);
+    }
+  }
+}

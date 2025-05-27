@@ -66,39 +66,11 @@
               <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
                 <input type="text" class="form-control" id="baseUrlInput" placeholder="https://api.openai.com/v1">
-                <button class="btn btn-outline-secondary" type="button" id="resetBaseUrlBtn" title="Reset to default">
-                  <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-                <button class="btn btn-outline-primary" type="button" id="testEndpointBtn" title="Test connection">
-                  <i class="bi bi-lightning"></i>
-                </button>
               </div>
               <div class="form-text">Use a custom endpoint (e.g., for proxies or Azure OpenAI). <strong>Default:</strong> https://api.openai.com/v1</div>
-              <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" id="azureOpenAICheck">
-                <label class="form-check-label" for="azureOpenAICheck">
-                  This is an Azure OpenAI endpoint
-                </label>
-              </div>
             </div>
             
-            <div id="azureOpenAIFormSection" class="mb-3 border rounded p-3 bg-light d-none">
-              <h6 class="mb-3">Azure OpenAI Configuration</h6>
-              <div class="mb-2">
-                <label for="azureResourceName" class="form-label">Resource Name</label>
-                <input type="text" class="form-control" id="azureResourceName" placeholder="your-resource-name">
-              </div>
-              <div class="mb-2">
-                <label for="azureDeploymentName" class="form-label">Deployment Name</label>
-                <input type="text" class="form-control" id="azureDeploymentName" placeholder="your-deployment-name">
-              </div>
-              <div class="mb-2">
-                <label for="azureApiVersion" class="form-label">API Version</label>
-                <input type="text" class="form-control" id="azureApiVersion" value="2023-05-15" placeholder="2023-05-15">
-              </div>
-              <button class="btn btn-azure w-100 mt-2" id="applyAzureSettingsBtn">Apply Azure Settings</button>
-              <div class="form-text mt-2">This will format the correct Azure OpenAI endpoint URL.</div>
-            </div>
+
             <div class="mb-3">
               <label for="modelSelect" class="form-label">Model</label>
               <select class="form-select" id="modelSelect">
@@ -110,11 +82,9 @@
           </div>
           <hr>
 
-          <hr>
-          <div class="d-grid gap-2">
-            <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
-            <button class="btn btn-outline-secondary" id="clearSettingsBtn">Clear Settings</button>
+          <div id="lastSavedIndicator" class="text-muted small mt-3 text-end">
           </div>
+
         </div>
       </div>
     </div>
@@ -166,50 +136,7 @@
       // Expose directSearch to global scope for UI access
       window.directSearch = directSearch;
 
-      // Test the API endpoint
-      async function testApiEndpoint() {
-        const apiKey = apiKeyInput.value.trim();
-        const baseUrl = baseUrlInput.value.trim();
-        
-        if (!apiKey) {
-          appendMessage('system', 'Please enter an API key first.');
-          return;
-        }
-        
-        if (!baseUrl) {
-          appendMessage('system', 'Please enter a base URL.');
-          return;
-        }
-        
-        appendMessage('system', `Testing connection to: ${baseUrl}`);
-        
-        try {
-          // Create a temporary client just for testing
-          const testClient = new OpenAIClient(apiKey, {
-            baseURL: baseUrl,
-            model: modelSelect.value
-          });
-          
-          // Send a simple test message
-          const response = await testClient.createChatCompletion(
-            [{ role: 'user', content: 'Reply with just the text "Connection successful"' }],
-            [],
-            { 
-              stream: false,
-              max_tokens: 10
-            }
-          );
-          
-          if (response && response.choices && response.choices[0]) {
-            appendMessage('system', `✅ Connection successful! Endpoint is working.`);
-          } else {
-            appendMessage('system', `⚠️ Connection made but received unexpected response format.`);
-          }
-        } catch (error) {
-          appendMessage('system', `❌ Connection failed: ${error.message}`);
-          console.error('API test error:', error);
-        }
-      }
+
       
       // Initialize the app
       function initApp() {
@@ -217,6 +144,9 @@
         setupEventListeners();
         initializeClients();
         conversationHistory = [];
+        
+        // Update the last saved indicator
+        updateLastSavedIndicator();
         
         // Check if dark mode should be enabled
         checkDarkMode();
@@ -262,49 +192,44 @@
       // Update UI indicator for custom URL usage
       function updateCustomUrlIndicator(isCustom) {
         const indicator = document.getElementById('settingsIndicator');
-        if (isCustom) {
-          indicator.innerHTML = 'Settings <span class="badge bg-warning">Custom API</span>';
-        } else {
-          indicator.innerHTML = 'Settings';
+        if (indicator) {
+          if (isCustom) {
+            indicator.innerHTML = 'Settings <span class="badge custom-badge">Custom API</span>';
+          } else {
+            indicator.innerHTML = 'Settings';
+          }
         }
       }
 
       // Save settings to localStorage
-    function saveSettings() {
-      const apiKey = apiKeyInput.value.trim();
-      const baseUrl = baseUrlInput.value.trim();
+      function saveSettings() {
+        const apiKey = apiKeyInput.value.trim();
+        const baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
         
-      // Validate API key format
-      if (!validateApiKey(apiKeyInput)) {
-        appendMessage('system', 'Invalid OpenAI API key format. API keys should start with "sk-" and be at least 20 characters long.');
-        return;
+        const isCustomBaseUrl = baseUrl !== 'https://api.openai.com/v1';
+        
+        const settings = {
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          model: modelSelect.value,
+          isCustomBaseUrl: isCustomBaseUrl,
+          lastSaved: new Date().toISOString()
+        };
+        localStorage.setItem('dialogueSettings', JSON.stringify(settings));
+        initializeClients();
+        
+        // Add a subtle visual feedback that settings were saved
+        const flashClass = 'saved';
+        apiKeyInput.classList.add(flashClass);
+        baseUrlInput.classList.add(flashClass);
+        modelSelect.classList.add(flashClass);
+        
+        setTimeout(() => {
+          apiKeyInput.classList.remove(flashClass);
+          baseUrlInput.classList.remove(flashClass);
+          modelSelect.classList.remove(flashClass);
+        }, 1000);
       }
-        
-      // Validate base URL format
-      if (!validateBaseUrl(baseUrlInput)) {
-        appendMessage('system', 'Invalid base URL format. Please enter a valid URL starting with http:// or https://');
-        return;
-      }
-        
-      const isCustomBaseUrl = baseUrl !== 'https://api.openai.com/v1';
-      
-      // Show a confirmation if using a custom URL
-      if (isCustomBaseUrl) {
-        const confirmMessage = `You are using a custom API endpoint: ${baseUrl}. This should only be used if you're connecting to a proxy, Azure OpenAI, or another compatible service.`;
-        appendMessage('system', confirmMessage);
-      }
-        
-      const settings = {
-        apiKey: apiKey,
-        baseUrl: baseUrl,
-        model: modelSelect.value,
-        isCustomBaseUrl: isCustomBaseUrl
-      };
-      localStorage.setItem('dialogueSettings', JSON.stringify(settings));
-      initializeClients();
-      updateCustomUrlIndicator(isCustomBaseUrl);
-      appendMessage('system', 'Settings saved successfully! You can now start chatting.');
-    }
 
       // Initialize clients with current settings
       function initializeClients() {
@@ -327,7 +252,9 @@
             // Log when using custom API endpoint
             if (baseURL !== 'https://api.openai.com/v1') {
               console.log(`Using custom OpenAI API endpoint: ${baseURL}`);
-              appendMessage('system', `Using custom API endpoint: ${baseURL}`);
+              updateCustomUrlIndicator(true);
+            } else {
+              updateCustomUrlIndicator(false);
             }
           } catch (error) {
             console.error('Error initializing OpenAI client:', error);
@@ -335,73 +262,31 @@
           }
         }
       }
+      
+      // Expose initializeClients to global scope
+      window.initializeClients = initializeClients;
 
       // Set up event listeners
       function setupEventListeners() {
         // Chat form submission
         chatForm.addEventListener('submit', handleChatSubmit);
         
-        // Save settings button
-        saveSettingsBtn.addEventListener('click', saveSettings);
-        
-        // Clear settings button
-        document.getElementById('clearSettingsBtn').addEventListener('click', () => {
-          localStorage.removeItem('dialogueSettings');
-          apiKeyInput.value = '';
-          baseUrlInput.value = 'https://api.openai.com/v1';
-          modelSelect.value = 'gpt-4-turbo';
-          updateCustomUrlIndicator(false);
-          document.getElementById('azureOpenAICheck').checked = false;
-          document.getElementById('azureOpenAIFormSection').classList.add('d-none');
-          appendMessage('system', 'Settings have been cleared.');
+        // Auto-save settings when inputs change
+        apiKeyInput.addEventListener('blur', function() {
+          saveSettings();
+          updateLastSavedIndicator();
         });
-        
-        // Reset base URL button
-        document.getElementById('resetBaseUrlBtn').addEventListener('click', () => {
-          baseUrlInput.value = 'https://api.openai.com/v1';
-          appendMessage('system', 'Base URL reset to OpenAI default endpoint.');
-          
-          // If settings were previously saved with a custom URL, update the indicator
-          const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
-          if (settings.isCustomBaseUrl) {
-            appendMessage('system', 'Click "Save Settings" to apply the default endpoint.');
-          }
+        baseUrlInput.addEventListener('blur', function() {
+          saveSettings();
+          updateLastSavedIndicator();
         });
-        
-        // Azure OpenAI checkbox
-        document.getElementById('azureOpenAICheck').addEventListener('change', function() {
-          const azureSection = document.getElementById('azureOpenAIFormSection');
-          if (this.checked) {
-            azureSection.classList.remove('d-none');
-          } else {
-            azureSection.classList.add('d-none');
-          }
-        });
-        
-        // Apply Azure Settings button
-        document.getElementById('applyAzureSettingsBtn').addEventListener('click', function() {
-          const resourceName = document.getElementById('azureResourceName').value.trim();
-          const deploymentName = document.getElementById('azureDeploymentName').value.trim();
-          const apiVersion = document.getElementById('azureApiVersion').value.trim() || '2023-05-15';
-          
-          if (!resourceName || !deploymentName) {
-            appendMessage('system', 'Please provide both Resource Name and Deployment Name for Azure OpenAI.');
-            return;
-          }
-          
-          // Format the Azure OpenAI URL
-          const azureUrl = `https://${resourceName}.openai.azure.com/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
-          baseUrlInput.value = azureUrl;
-          
-          appendMessage('system', `Azure OpenAI endpoint configured: ${azureUrl}`);
-          document.getElementById('settingsIndicator').innerHTML = 'Settings <span class="badge azure-badge">Azure</span>';
+        modelSelect.addEventListener('change', function() {
+          saveSettings();
+          updateLastSavedIndicator();
         });
         
         // Tool call interceptor events
         document.addEventListener('openai-tool-call', handleToolCall);
-          
-        // Test endpoint button
-        document.getElementById('testEndpointBtn').addEventListener('click', testApiEndpoint);
       }
 
       // Handle chat form submission
@@ -997,10 +882,26 @@
       // Initialize the app when the DOM is loaded
       document.addEventListener('DOMContentLoaded', initApp);
       
+      // Function to update the last saved indicator
+      function updateLastSavedIndicator() {
+        const settings = JSON.parse(localStorage.getItem('dialogueSettings') || '{}');
+        const lastSavedIndicator = document.getElementById('lastSavedIndicator');
+        
+        if (lastSavedIndicator && settings.lastSaved) {
+          const lastSaved = new Date(settings.lastSaved);
+          const timeString = lastSaved.toLocaleTimeString();
+          lastSavedIndicator.innerHTML = `Settings last saved: ${timeString}`;
+          lastSavedIndicator.classList.add('fade-in');
+        }
+      }
+      
       // Export functions to the global scope
       window.togglePanel = togglePanel;
       window.directSearch = directSearch;
       window.toggleDarkMode = toggleDarkMode;
+      window.initializeClients = initializeClients;
+      window.updateCustomUrlIndicator = updateCustomUrlIndicator;
+      window.updateLastSavedIndicator = updateLastSavedIndicator;
     </script>
   </body>
 </html>
