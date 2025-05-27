@@ -120,15 +120,8 @@ function validateApiKey(input) {
   const value = input.value.trim();
   const isValid = value.startsWith('sk-') && value.length >= 20;
   
-  if (isValid) {
-    input.classList.remove('is-invalid');
-    input.classList.add('is-valid');
-  } else if (value.length > 0) {
-    input.classList.remove('is-valid');
-    input.classList.add('is-invalid');
-  } else {
-    input.classList.remove('is-valid', 'is-invalid');
-  }
+  // Remove validation visuals
+  input.classList.remove('is-valid', 'is-invalid');
   
   return isValid;
 }
@@ -140,11 +133,8 @@ function validateApiKey(input) {
 function updateCustomUrlIndicator(isCustom) {
   const indicator = document.getElementById('settingsIndicator');
   if (indicator) {
-    if (isCustom) {
-      indicator.innerHTML = 'Settings <span class="badge custom-badge">Custom API</span>';
-    } else {
-      indicator.innerHTML = 'Settings';
-    }
+    // Always just show "Settings" without a badge
+    indicator.innerHTML = 'Settings';
   }
 }
 
@@ -166,15 +156,8 @@ function validateBaseUrl(input) {
     isValid = false;
   }
   
-  if (isValid) {
-    input.classList.remove('is-invalid');
-    input.classList.add('is-valid');
-  } else if (value.length > 0) {
-    input.classList.remove('is-valid');
-    input.classList.add('is-invalid');
-  } else {
-    input.classList.remove('is-valid', 'is-invalid');
-  }
+  // Remove validation visuals
+  input.classList.remove('is-valid', 'is-invalid');
   
   return isValid;
 }

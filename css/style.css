@@ -105,13 +105,7 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-.message-timestamp {
-  position: absolute;
-  bottom: 0.25rem;
-  right: 0.5rem;
-  font-size: 0.7rem !important;
-  opacity: 0.7;
-}
+/* Timestamp styles removed */
 
 .message.user {
   align-self: flex-end;
@@ -119,9 +113,7 @@ body {
   color: var(--message-user-color);
 }
 
-.message.user .message-timestamp {
-  color: rgba(255,255,255,0.8) !important;
-}
+/* User timestamp styles removed */
 
 .message.assistant {
   align-self: flex-start;
@@ -317,25 +309,9 @@ code {
 }
 
 /* Custom badges */
-.custom-badge {
-  background-color: #6c757d;
-  color: white;
-}
+/* Custom badge styles removed */
 
-.settings-saved-badge {
-  background-color: #28a745;
-  color: white;
-  font-size: 0.7rem;
-  padding: 0.15rem 0.35rem;
-  margin-left: 0.5rem;
-  animation: fade-out 2s forwards;
-  animation-delay: 1s;
-}
-
-@keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; visibility: hidden; }
-}
+/* Settings saved badge styles removed */
 
 mark {
   background-color: rgba(255, 230, 0, 0.4);
