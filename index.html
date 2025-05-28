@@ -355,6 +355,38 @@
             margin-bottom: 12px;
         }
 
+        .document-content {
+            margin-top: 6px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #bbb;
+        }
+
+        .document-properties {
+            margin-top: 6px;
+            font-size: 14px;
+        }
+
+        .document-property-list {
+            display: grid;
+            grid-template-columns: max-content auto;
+            grid-gap: 6px 12px;
+            margin: 0;
+        }
+
+        .document-property-list dt {
+            font-weight: bold;
+            color: #aaa;
+            text-align: right;
+        }
+
+        .document-property-list dd {
+            margin: 0;
+            color: #bbb;
+            overflow-wrap: break-word;
+            word-break: break-all;
+        }
+
 
 
         @keyframes pulse {
@@ -479,12 +511,133 @@
             // Track active tool calls and their responses
             let activeToolCalls = {};
             
+            // Track active search progress indicators by call ID
+            let searchProgressIndicators = {};
+            
+            // Flag to control whether we use the Meilisearch tools for UI
+            let useMeiliToolsForUI = true;
+            
             // Meilisearch tool handlers
             function handleMeiliSearchProgress(callId, functionName, functionParams) {
                 console.log(`[Meili] Search Progress for ${callId}`);
                 console.log(`[Meili] Function: ${functionName}`);
-                console.log(`[Meili] Parameters: ${JSON.stringify(functionParams)}`);
+                console.log(`[Meili] Parameters: ${functionParams}`);
+                
+                let functionParamsObj = functionParams;
+                // Handle function_arguments vs function_parameters difference in naming
+                if (typeof functionParams === 'string') {
+                    try {
+                        functionParamsObj = JSON.parse(functionParams);
+                    } catch (e) {
+                        console.error('Error parsing function parameters:', e);
+                        functionParamsObj = {};
+                    }
+                }
+                
+                // Create or update search progress indicator
+                const indicator = createOrUpdateSearchIndicator(callId, functionName, functionParamsObj);
+                searchProgressIndicators[callId] = indicator;
+                
                 return { status: "searching", progress: 0.5 };
+            }
+            
+            // Function to create or update search indicator based on tool call
+            function createOrUpdateSearchIndicator(callId, functionName, functionParams) {
+                // Check if we already have an indicator for this call
+                let searchIndicatorRow = document.querySelector(`[data-meili-call-id="${callId}"]`);
+                
+                // If we don't have an indicator yet, create one
+                if (!searchIndicatorRow) {
+                    searchIndicatorRow = document.createElement('div');
+                    searchIndicatorRow.className = 'message-row';
+                    searchIndicatorRow.dataset.meiliCallId = callId;
+                    searchIndicatorRow.dataset.timestamp = Date.now().toString();
+                    
+                    const searchIndicatorContainer = document.createElement('div');
+                    searchIndicatorContainer.className = 'search-indicator-container';
+                    
+                    const searchPulse = document.createElement('div');
+                    searchPulse.className = 'search-pulse';
+                    
+                    const searchInfo = document.createElement('div');
+                    searchInfo.className = 'search-info';
+                    
+                    // Create search text with function information
+                    const searchText = document.createElement('div');
+                    searchText.className = 'search-text';
+                    
+                    // Parse the function parameters if provided as a string
+                    let params = {};
+                    if (typeof functionParams === 'string') {
+                        try {
+                            params = JSON.parse(functionParams);
+                        } catch (e) {
+                            console.error('Error parsing function parameters:', e);
+                        }
+                    } else if (functionParams && typeof functionParams === 'object') {
+                        params = functionParams;
+                    }
+                    
+                    // Try to extract the query from function_arguments if present
+                    let queryParam = null;
+                    if (params.function_arguments && typeof params.function_arguments === 'string') {
+                        try {
+                            const args = JSON.parse(params.function_arguments);
+                            if (args.q) {
+                                queryParam = args.q;
+                            } else if (args.query) {
+                                queryParam = args.query;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing function_arguments:', e);
+                        }
+                    }
+                    
+                    // Determine appropriate display text
+                    let displayText = '';
+                    if (queryParam) {
+                        displayText = `"${queryParam}"`;
+                    } else if (params.q) {
+                        displayText = `"${params.q}"`;
+                    } else if (params.query) {
+                        displayText = `"${params.query}"`;
+                    } else if (typeof params === 'object' && Object.keys(params).length > 0) {
+                        const firstKey = Object.keys(params)[0];
+                        const value = params[firstKey];
+                        if (typeof value === 'string') {
+                            displayText = `${firstKey}: "${value}"`;
+                        } else {
+                            displayText = `${firstKey}: ${JSON.stringify(value).substring(0, 50)}`;
+                        }
+                    }
+                    
+                    searchText.textContent = `Running ${functionName}${displayText ? ' with ' + displayText : ''}`;
+                    
+                    const searchParams = document.createElement('div');
+                    searchParams.className = 'search-params';
+                    searchParams.textContent = `Call ID: ${callId}`;
+                    
+                    // Assemble the indicator
+                    searchInfo.appendChild(searchText);
+                    searchInfo.appendChild(searchParams);
+                    searchIndicatorContainer.appendChild(searchPulse);
+                    searchIndicatorContainer.appendChild(searchInfo);
+                    searchIndicatorRow.appendChild(searchIndicatorContainer);
+                    
+                    // Insert search indicator before assistant message or at the end of chat
+                    chatContainer.appendChild(searchIndicatorRow);
+                    
+                    // Store this search indicator in our tracking arrays
+                    searchIndicators.push(searchIndicatorRow);
+                    toolCalls[callId] = searchIndicatorRow;
+                    
+                    // Scroll if needed
+                    if (isScrolledToBottom()) {
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+                }
+                
+                return searchIndicatorRow;
             }
             
             function handleMeiliAppendConversationMessage(role, content, toolCalls, toolCallId) {
@@ -492,18 +645,251 @@
                 console.log(`[Meili] Content: ${content}`);
                 console.log(`[Meili] Tool Calls:`, toolCalls);
                 console.log(`[Meili] Tool Call ID: ${toolCallId}`);
+                
+                // Only add to conversation history, don't display in UI
+                // This is crucial for keeping context for follow-up questions
+                const messageObj = {
+                    role: role,
+                };
+                
+                // Add content if provided
+                if (content) {
+                    messageObj.content = content;
+                }
+                
+                // Add tool_calls if provided
+                if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
+                    messageObj.tool_calls = toolCalls;
+                }
+                
+                // Add tool_call_id if provided
+                if (toolCallId) {
+                    messageObj.tool_call_id = toolCallId;
+                }
+                
+                // Add to conversation history
+                conversationHistory.push(messageObj);
+                
+                console.log('Added message to conversation history:', messageObj);
+                
                 return { status: "appended" };
             }
             
-            function handleMeiliSearchSources(callId, documents) {
+            function handleMeiliSearchSources(callId, sources) {
                 console.log(`[Meili] Search Sources for ${callId}`);
-                console.log(`[Meili] Documents:`, documents);
+                console.log(`[Meili] Sources:`, sources);
+                
+                // Parse sources to get documents if needed
+                let documents = [];
+                
+                if (sources) {
+                    if (typeof sources === 'string') {
+                        try {
+                            documents = JSON.parse(sources);
+                        } catch (e) {
+                            console.error('Error parsing sources:', e);
+                        }
+                    } else if (Array.isArray(sources)) {
+                        documents = sources;
+                    } else if (sources.sources && Array.isArray(sources.sources)) {
+                        documents = sources.sources;
+                    }
+                }
+                
+                // If documents is still an object with sources property, extract it
+                if (documents && !Array.isArray(documents) && documents.sources) {
+                    documents = documents.sources;
+                }
+                
+                // Clear any loading indicators for this call
+                hideLoadingIndicator();
+                
+                // Find the search indicator for this call - first check our tracking object
+                let searchIndicatorRow = searchProgressIndicators[callId];
+                
+                // If not found in our tracking, try to find it in the DOM
+                if (!searchIndicatorRow) {
+                    searchIndicatorRow = document.querySelector(`[data-meili-call-id="${callId}"]`);
+                }
+                if (searchIndicatorRow && searchIndicatorRow.parentNode) {
+                    // Transform the search indicator into results container
+                    searchIndicatorRow.className = 'message-row tool-message';
+                    
+                    // Clear the existing content
+                    searchIndicatorRow.innerHTML = '';
+                    
+                    // Create new message div
+                    const toolMessageDiv = document.createElement('div');
+                    toolMessageDiv.className = 'message-content';
+                    searchIndicatorRow.appendChild(toolMessageDiv);
+                    
+                    // Create a container for results with collapsible content
+                            const toolResults = document.createElement('div');
+                            toolResults.className = 'tool-results';
+                    
+                            // Create the header
+                            const toolHeader = document.createElement('h4');
+                            toolHeader.className = 'collapsed';
+                    
+                            // Get count of documents for the header
+                            const docCount = Array.isArray(documents) ? documents.length : 0;
+                            toolHeader.textContent = `Search results (${docCount} ${docCount === 1 ? 'document' : 'documents'})`;
+                            toolResults.appendChild(toolHeader);
+                    
+                    // Create the content container (collapsed by default)
+                    const toolResultsContent = document.createElement('div');
+                    toolResultsContent.className = 'tool-results-content';
+                    
+                    // Process documents
+                    if (documents && documents.length > 0) {
+                        const docArray = Array.isArray(documents) ? documents : [documents];
+                        
+                        for (const doc of docArray) {
+                            const docItem = document.createElement('div');
+                            docItem.className = 'movie-item';
+                            
+                            // Create title if available
+                            if (doc.title) {
+                                const docTitle = document.createElement('div');
+                                docTitle.className = 'movie-title';
+                                docTitle.textContent = doc.title;
+                                docItem.appendChild(docTitle);
+                            } else if (doc.name) {
+                                const docTitle = document.createElement('div');
+                                docTitle.className = 'movie-title';
+                                docTitle.textContent = doc.name;
+                                docItem.appendChild(docTitle);
+                            } else if (doc.id) {
+                                const docTitle = document.createElement('div');
+                                docTitle.className = 'movie-title';
+                                docTitle.textContent = `Document #${doc.id}`;
+                                docItem.appendChild(docTitle);
+                            }
+                            
+                            // Add other content if available
+                            if (doc.content || doc.text || doc.description) {
+                                const docContent = document.createElement('div');
+                                docContent.className = 'document-content';
+                                // Use marked to render markdown content
+                                const contentText = doc.content || doc.text || doc.description;
+                                docContent.innerHTML = marked.parse(contentText);
+                                docItem.appendChild(docContent);
+                            } else {
+                                // Create a formatted display of the document's properties
+                                const docContent = document.createElement('div');
+                                docContent.className = 'document-properties';
+                                
+                                // Format the document as a list of properties
+                                const dl = document.createElement('dl');
+                                dl.className = 'document-property-list';
+                                
+                                for (const [key, value] of Object.entries(doc)) {
+                                    // Skip id and title as they're already displayed
+                                    if (key === 'id' || key === 'title' || key === 'name') continue;
+                                    
+                                    // Create term (property name)
+                                    const dt = document.createElement('dt');
+                                    dt.textContent = key;
+                                    dl.appendChild(dt);
+                                    
+                                    // Create description (property value)
+                                    const dd = document.createElement('dd');
+                                    if (typeof value === 'object') {
+                                        dd.textContent = JSON.stringify(value);
+                                    } else {
+                                        dd.textContent = value;
+                                    }
+                                    dl.appendChild(dd);
+                                }
+                                
+                                docContent.appendChild(dl);
+                                docItem.appendChild(docContent);
+                            }
+                            
+                            toolResultsContent.appendChild(docItem);
+                        }
+                    } else {
+                        // If we don't have proper documents, just display a message
+                        const noDocsItem = document.createElement('div');
+                        noDocsItem.className = 'movie-item';
+                        noDocsItem.textContent = 'No search results available';
+                        toolResultsContent.appendChild(noDocsItem);
+                    }
+                    
+                    // Add the content to the results container
+                    toolResults.appendChild(toolResultsContent);
+                    
+                    // Add click handler to toggle expansion
+                    toolHeader.addEventListener('click', function() {
+                        this.classList.toggle('collapsed');
+                        toolResultsContent.classList.toggle('expanded');
+                    });
+                    
+                    // Add the tool results to the message
+                    toolMessageDiv.appendChild(toolResults);
+                    
+                    // Remove this indicator from all tracking mechanisms
+                    delete toolCalls[callId];
+                    delete searchProgressIndicators[callId];
+                    searchIndicators = searchIndicators.filter(indicator => indicator !== searchIndicatorRow);
+                    
+                    // Scroll if needed
+                    if (isScrolledToBottom()) {
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+                }
+                
                 return { status: "sources_processed" };
             }
             
             function handleMeiliReportError(errorCode, message) {
                 console.log(`[Meili] Error: ${errorCode}`);
                 console.log(`[Meili] Message: ${message}`);
+                
+                // Create an error message in the UI
+                const errorRow = document.createElement('div');
+                errorRow.className = 'message-row assistant-message';
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message-content';
+                
+                // Format error message with different styling based on error type
+                let errorDisplay;
+                switch(errorCode) {
+                    case 'auth_error':
+                    case 'api_key_error':
+                    case 'llm_api_issue':
+                        errorDisplay = `⚠️ **Authentication Error:** ${message}`;
+                        break;
+                    case 'search_error':
+                        errorDisplay = `🔍 **Search Error:** ${message}`;
+                        break;
+                    case 'timeout':
+                        errorDisplay = `⏱️ **Timeout Error:** ${message}`;
+                        break;
+                    default:
+                        errorDisplay = `❌ **Error (${errorCode}):** ${message}`;
+                }
+                
+                errorDiv.innerHTML = marked.parse(errorDisplay);
+                
+                errorRow.appendChild(errorDiv);
+                chatContainer.appendChild(errorRow);
+                
+                // Hide any loading indicators
+                hideLoadingIndicator();
+                
+                // Add to conversation history
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: `Error (${errorCode}): ${message}`
+                });
+                
+                // Scroll if user was at bottom
+                if (isScrolledToBottom()) {
+                    window.scrollTo(0, document.body.scrollHeight);
+                }
+                
                 return { status: "error_reported" };
             }
 
@@ -828,7 +1214,14 @@
                                 logDebug('Raw data', data);
 
                                 try {
-                                    const parsedData = JSON.parse(data);
+                                    // Support for different input formats (raw JSON or stringified JSON)
+                                    let parsedData;
+                                    try {
+                                        parsedData = JSON.parse(data);
+                                    } catch (innerError) {
+                                        console.error('Error parsing JSON data:', innerError);
+                                        continue;
+                                    }
 
                                     // Log parsed data to console only
 
@@ -959,7 +1352,7 @@
                                         logDebug('Processing tool call', { toolCallData, toolCallId });
                                         
                                         // Intercept Meilisearch tool calls
-                                        if (toolCallData.function.name && toolCallData.function.name.startsWith('_meili')) {
+                                        if (useMeiliToolsForUI && toolCallData.function.name && toolCallData.function.name.startsWith('_meili')) {
                                             console.log(`Intercepted Meilisearch tool call: ${toolCallData.function.name}`);
                                             console.log('Tool call arguments:', toolCallData.function.arguments);
                                             
@@ -969,7 +1362,18 @@
                                                 functionArgs = JSON.parse(toolCallData.function.arguments);
                                             } catch (e) {
                                                 console.error('Error parsing tool call arguments:', e);
-                                                functionArgs = {};
+                                                // Try to extract params even if JSON is malformed
+                                                let args = toolCallData.function.arguments || '';
+                                                if (args.includes('call_id')) {
+                                                    const callIdMatch = args.match(/"call_id"\s*:\s*"([^"]+)"/);
+                                                    const funcNameMatch = args.match(/"function_name"\s*:\s*"([^"]+)"/);
+                                                    functionArgs = {
+                                                        call_id: callIdMatch ? callIdMatch[1] : 'unknown',
+                                                        function_name: funcNameMatch ? funcNameMatch[1] : 'unknown',
+                                                    };
+                                                } else {
+                                                    functionArgs = {};
+                                                }
                                             }
                                             
                                             // Store the tool call for later reference
@@ -982,13 +1386,16 @@
                                             
                                             // Handle each specific tool based on its name
                                             let response;
+                                            // Always skip default indicator for Meilisearch tools
+                                            let skipDefaultIndicator = true;
+                                            
                                             switch (toolCallData.function.name) {
                                                 case '_meiliSearchProgress':
                                                     console.log('Handling _meiliSearchProgress tool call');
                                                     response = handleMeiliSearchProgress(
                                                         functionArgs.call_id, 
                                                         functionArgs.function_name, 
-                                                        functionArgs.function_parameters
+                                                        functionArgs.function_arguments
                                                     );
                                                     break;
                                                 case '_meiliAppendConversationMessage':
@@ -1004,7 +1411,7 @@
                                                     console.log('Handling _meiliSearchSources tool call');
                                                     response = handleMeiliSearchSources(
                                                         functionArgs.call_id,
-                                                        functionArgs.documents
+                                                        functionArgs.sources || functionArgs.documents
                                                     );
                                                     break;
                                                 case '_meiliReportError':
@@ -1024,7 +1431,14 @@
                                                 activeToolCalls[toolCallId].response = response;
                                             }
                                         }
-                                        // Create the search indicator element
+                                        
+                                        // Skip creating the default search indicator for Meilisearch tools that handle their own UI
+                                        if (skipDefaultIndicator) {
+                                            continue;
+                                        }
+                                        
+                                        // Create the search indicator element for non-Meilisearch tools
+                                        // or Meilisearch tools other than _meiliSearchProgress
                                         const searchIndicatorRow = document.createElement('div');
                                         searchIndicatorRow.className = 'message-row';
                                         searchIndicatorRow.dataset.toolCallId = toolCallId || 'default'; // Store the tool_call_id
@@ -1180,14 +1594,35 @@
                                             if (toolCallId) {
                                                 console.log(`Intercepted tool output for ID: ${toolCallId}`);
                                                 console.log('Tool output content:', toolContent);
-                                                
+                                            
                                                 // If this is a response to one of our tracked tool calls
-                                                if (activeToolCalls[toolCallId]) {
+                                                if (useMeiliToolsForUI && activeToolCalls[toolCallId]) {
                                                     const toolCall = activeToolCalls[toolCallId];
                                                     console.log(`This is a response to ${toolCall.name}`);
                                                     console.log('Original args:', toolCall.args);
                                                     console.log('Our response:', toolCall.response);
-                                                    
+                                                
+                                                    // If this is a response to a _meiliSearchProgress call,
+                                                    // update or remove the corresponding indicator
+                                                    if (toolCall.name === '_meiliSearchProgress') {
+                                                        // Find the search indicator for this call
+                                                        const callId = toolCall.args.call_id;
+                                                        if (callId) {
+                                                            const indicator = document.querySelector(`[data-meili-call-id="${callId}"]`);
+                                                            if (indicator && indicator.parentNode) {
+                                                                // Rather than removing, we'll just mark it as no longer active
+                                                                delete searchProgressIndicators[callId];
+                                                                
+                                                                // Keep the indicator in the DOM for now,
+                                                                // it will be transformed when sources arrive
+                                                                const searchText = indicator.querySelector('.search-text');
+                                                                if (searchText) {
+                                                                    searchText.textContent = 'Search completed, waiting for results...';
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                
                                                     // Clean up after processing
                                                     delete activeToolCalls[toolCallId];
                                                 }
@@ -1346,6 +1781,19 @@
                     }
                     localSearchIndicators = [];
                     localToolCalls = {};
+                    
+                    // Clean up any orphaned Meilisearch progress indicators
+                    for (const callId in searchProgressIndicators) {
+                        const indicator = searchProgressIndicators[callId];
+                        if (indicator && indicator.parentNode) {
+                            // Only remove indicators that are older than 15 seconds
+                            const indicatorTime = parseInt(indicator.dataset.timestamp || '0');
+                            if (Date.now() - indicatorTime > 15000) {
+                                indicator.parentNode.removeChild(indicator);
+                                delete searchProgressIndicators[callId];
+                            }
+                        }
+                    }
 
                     // Save the complete message to conversation history
                     conversationHistory.push({
